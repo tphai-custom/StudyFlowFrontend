@@ -29,7 +29,7 @@ export default function AvailabilityForm({
 
   const addTimeBlock = (day: string) => {
     const newBlock: TimeBlock = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       day,
       startTime: '09:00',
       endTime: '11:00',
