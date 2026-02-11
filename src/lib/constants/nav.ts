@@ -1,0 +1,16 @@
+export const NAV_ITEMS = [
+  { href: "/dashboard", label: "Tổng quan" },
+  { href: "/tasks", label: "Nhiệm vụ" },
+  { href: "/free-time", label: "Giờ rảnh" },
+  { href: "/plan", label: "Trình tạo kế hoạch" },
+  { href: "/calendar", label: "Lịch lớn" },
+  { href: "/today", label: "Hôm nay" },
+  { href: "/habits", label: "Thói quen" },
+  { href: "/feedback", label: "Phản hồi" },
+  { href: "/stats", label: "Thống kê" },
+  { href: "/library", label: "Thư viện" },
+  { href: "/templates", label: "Template" },
+  { href: "/programs", label: "Program" },
+  { href: "/settings", label: "Cài đặt" },
+  { href: "/demo", label: "Demo/Seed" },
+];
