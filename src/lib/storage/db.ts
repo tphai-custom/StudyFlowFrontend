@@ -70,17 +70,14 @@ export async function readStore<T>(store: StoreName): Promise<T[]> {
   if (!db) {
     return readLocalFallback<T>(store);
   }
-  return new Promise((resolve, reject) => {
+  try {
     const tx = db.transaction(store, "readonly");
-    const objectStore = tx.objectStore(store);
-    const request = objectStore.get(STORE_KEY);
-    request.onsuccess = () => {
-      resolve((request.result as T[]) ?? []);
-    };
-    request.onerror = () => {
-      reject(request.error);
-    };
-  }).catch(() => readLocalFallback<T>(store));
+    const result = await tx.objectStore(store).get(STORE_KEY);
+    await tx.done;
+    return (result as T[]) ?? [];
+  } catch {
+    return readLocalFallback<T>(store);
+  }
 }
 
 export async function writeStore<T>(store: StoreName, value: T[]): Promise<void> {
@@ -89,15 +86,13 @@ export async function writeStore<T>(store: StoreName, value: T[]): Promise<void>
     await writeLocalFallback(store, value);
     return;
   }
-  await new Promise<void>((resolve, reject) => {
+  try {
     const tx = db.transaction(store, "readwrite");
-    const objectStore = tx.objectStore(store);
-    const request = objectStore.put(value, STORE_KEY);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  }).catch(async () => {
+    await tx.objectStore(store).put(value, STORE_KEY);
+    await tx.done;
+  } catch {
     await writeLocalFallback(store, value);
-  });
+  }
 }
 
 export async function clearStore(store: StoreName): Promise<void> {
@@ -108,10 +103,13 @@ export async function clearStore(store: StoreName): Promise<void> {
     }
     return;
   }
-  await new Promise<void>((resolve, reject) => {
+  try {
     const tx = db.transaction(store, "readwrite");
-    tx.objectStore(store).delete(STORE_KEY);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+    await tx.objectStore(store).delete(STORE_KEY);
+    await tx.done;
+  } catch {
+    if (isBrowser) {
+      window.localStorage.removeItem(`studyflow:${store}`);
+    }
+  }
 }
