@@ -15,6 +15,7 @@ const STORE_NAMES = [
   "settings",
   "templates",
   "programs",
+  "profile",
 ] as const;
 
 export type StoreName = (typeof STORE_NAMES)[number];
@@ -30,6 +31,7 @@ interface StudyFlowDB extends DBSchema {
   settings: { key: string; value: unknown };
   templates: { key: string; value: unknown };
   programs: { key: string; value: unknown };
+  profile: { key: string; value: unknown };
 }
 
 let dbPromise: Promise<IDBPDatabase<StudyFlowDB> | null> | null = null;

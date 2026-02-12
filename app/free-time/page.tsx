@@ -5,7 +5,17 @@ import { listSlots, saveSlot, deleteSlot } from "@/src/lib/storage/slotsRepo";
 import { FreeSlot } from "@/src/lib/types";
 import { cleanSlots } from "@/src/lib/planner/cleanSlots";
 
-const weekdays = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+const weekdayOptions = [
+  { value: 1, label: "Thứ 2" },
+  { value: 2, label: "Thứ 3" },
+  { value: 3, label: "Thứ 4" },
+  { value: 4, label: "Thứ 5" },
+  { value: 5, label: "Thứ 6" },
+  { value: 6, label: "Thứ 7" },
+  { value: 0, label: "Chủ nhật" },
+];
+
+const getWeekdayLabel = (value: number) => weekdayOptions.find((item) => item.value === value)?.label ?? "Chủ nhật";
 
 export default function FreeTimePage() {
   const [slots, setSlots] = useState<FreeSlot[]>([]);
@@ -46,9 +56,9 @@ export default function FreeTimePage() {
               value={form.weekday}
               onChange={(e) => setForm((prev) => ({ ...prev, weekday: Number(e.target.value) }))}
             >
-              {weekdays.map((label, index) => (
-                <option key={label} value={index}>
-                  {label}
+              {weekdayOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -88,7 +98,7 @@ export default function FreeTimePage() {
               <li key={slot.id} className="flex items-center justify-between rounded-lg border border-zinc-700/60 p-3">
                 <div>
                   <p className="text-sm font-semibold">
-                    {weekdays[slot.weekday]} {slot.startTime}–{slot.endTime}
+                    {getWeekdayLabel(slot.weekday)} {slot.startTime}–{slot.endTime}
                   </p>
                   <p className="text-xs text-zinc-500">{slot.capacityMinutes} phút</p>
                 </div>
@@ -112,7 +122,7 @@ export default function FreeTimePage() {
             {cleaned.slots.map((slot) => (
               <li key={`${slot.weekday}-${slot.startTime}`} className="rounded-lg border border-zinc-700/60 p-3">
                 <p className="text-sm font-semibold">
-                  {weekdays[slot.weekday]} {slot.startTime}–{slot.endTime}
+                  {getWeekdayLabel(slot.weekday)} {slot.startTime}–{slot.endTime}
                 </p>
                 <p className="text-xs text-zinc-500">Sử dụng {slot.capacityMinutes} phút</p>
               </li>
@@ -121,8 +131,8 @@ export default function FreeTimePage() {
         )}
         {cleaned.warnings.length > 0 && (
           <div className="rounded-lg border border-yellow-400/40 bg-yellow-400/10 p-3 text-sm text-yellow-200">
-            {cleaned.warnings.map((warning) => (
-              <p key={warning}>{warning}</p>
+            {cleaned.warnings.map((warning, index) => (
+              <p key={`${warning}-${index}`}>{warning}</p>
             ))}
           </div>
         )}

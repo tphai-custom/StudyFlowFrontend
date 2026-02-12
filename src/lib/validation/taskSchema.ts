@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { DurationUnit } from "@/src/lib/types";
 
 const MIN_TASK_MINUTES = 10;
 const MAX_TASK_MINUTES = 600;
+const DURATION_UNITS = ["minutes", "hours"] as const satisfies readonly DurationUnit[];
 
 const deadlineString = z
   .string({ required_error: "Vui lòng chọn deadline" })
@@ -26,6 +28,15 @@ const deadlineString = z
     return !Number.isNaN(date.valueOf()) && date > new Date();
   }, "Deadline phải nằm trong tương lai");
 
+const milestoneSchema = z.object({
+  title: z.string().min(1, "Nhập tiêu đề mốc"),
+  minutesEstimate: z
+    .coerce
+    .number({ invalid_type_error: "Phải nhập phút" })
+    .min(5, "Tối thiểu 5 phút")
+    .max(480, "Quá dài, hãy chia nhỏ"),
+});
+
 export const taskSchema = z.object({
   subject: z.string().min(1, "Nhập môn học"),
   title: z.string().min(1, "Nhập tên nhiệm vụ"),
@@ -35,11 +46,15 @@ export const taskSchema = z.object({
     .number({ invalid_type_error: "Độ khó phải từ 1-5" })
     .min(1, "Tối thiểu 1")
     .max(5, "Tối đa 5"),
-  estimatedMinutes: z
+  durationEstimateMin: z
     .coerce
-    .number({ invalid_type_error: "Thời lượng phải là số" })
-    .min(MIN_TASK_MINUTES, `Tối thiểu ${MIN_TASK_MINUTES} phút`)
-    .max(MAX_TASK_MINUTES, "Bạn có nhầm đơn vị không? Giữ trong 600 phút"),
+    .number({ invalid_type_error: "Nhập số phút/giờ" })
+    .min(1, "Ước lượng tối thiểu phải >0"),
+  durationEstimateMax: z
+    .coerce
+    .number({ invalid_type_error: "Nhập số phút/giờ" })
+    .min(1, "Ước lượng tối đa phải >0"),
+  durationUnit: z.enum(DURATION_UNITS),
   importance: z
     .preprocess((value) => {
       if (value === "" || value === undefined || value === null) {
@@ -49,7 +64,13 @@ export const taskSchema = z.object({
     }, z.number().min(1, "Tối thiểu 1").max(3, "Tối đa 3"))
     .optional(),
   contentFocus: z.string().optional(),
-  successCriteria: z.string().optional(),
+  successCriteria: z
+    .array(z.string().min(1, "Nhập tiêu chí"))
+    .min(1, "Thêm ít nhất 1 tiêu chí"),
+  milestones: z.array(milestoneSchema).optional(),
+}).refine((data) => data.durationEstimateMin <= data.durationEstimateMax, {
+  message: "Ước lượng min phải nhỏ hơn max",
+  path: ["durationEstimateMin"],
 });
 
 export type TaskFormValues = z.infer<typeof taskSchema>;

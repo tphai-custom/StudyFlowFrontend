@@ -2,16 +2,29 @@ export const APP_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 export type ID = string;
 
+export type DurationUnit = "minutes" | "hours";
+
+export type TaskMilestone = {
+  id: ID;
+  title: string;
+  minutesEstimate: number;
+};
+
 export type Task = {
   id: ID;
   subject: string;
   title: string;
-  deadline: string; // ISO string in APP_TIMEZONE
+  deadline: string; // ISO string + timezone
+  timezone: string;
   difficulty: 1 | 2 | 3 | 4 | 5;
-  estimatedMinutes: number;
+  durationEstimateMin: number;
+  durationEstimateMax: number;
+  durationUnit: DurationUnit;
+  estimatedMinutes: number; // normalized to minutes, planner uses this as max minutes
   importance?: 1 | 2 | 3;
   contentFocus?: string;
-  successCriteria?: string;
+  successCriteria: string[];
+  milestones?: TaskMilestone[];
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -25,6 +38,8 @@ export type Habit = {
   weekday?: number;
   minutes: number;
   preset?: "pomodoro" | "deep-work" | "focus-30";
+  preferredStart?: string; // HH:mm for recurring placement
+  energyWindow?: "morning" | "afternoon" | "evening";
   createdAt: string;
 };
 
@@ -38,9 +53,13 @@ export type FreeSlot = {
   createdAt: string;
 };
 
+export type SessionSource = "task" | "habit" | "break";
+
 export type Session = {
   id: ID;
-  taskId: ID;
+  taskId?: ID;
+  habitId?: ID;
+  source: SessionSource;
   subject: string;
   title: string;
   plannedStart: string;
@@ -49,17 +68,9 @@ export type Session = {
   bufferMinutes: number;
   status: "pending" | "done" | "skipped";
   checklist?: string[];
-  successCriteria?: string;
-  planVersion: number;
-};
-
-export type BreakSession = {
-  id: ID;
-  label: string;
-  plannedStart: string;
-  plannedEnd: string;
-  minutes: number;
-  attachedToSessionId?: ID;
+  successCriteria?: string[];
+  milestoneTitle?: string;
+  completedAt?: string | null;
   planVersion: number;
 };
 
@@ -78,6 +89,8 @@ export type TemplatePlan = {
   name: string;
   durationDays: number;
   recommendedMinutesPerDay: number;
+  forWho: string;
+  recommendedFor: string[];
   tasks: Array<Pick<Task, "subject" | "title" | "estimatedMinutes" | "difficulty">>;
 };
 
@@ -92,6 +105,7 @@ export type Program = {
   id: ID;
   name: string;
   target: string;
+  recommendedFor: string[];
   milestones: ProgramMilestone[];
 };
 
@@ -136,9 +150,11 @@ export type AppSettings = {
 export type PlannerInput = {
   tasks: Task[];
   freeSlots: FreeSlot[];
+  habits: Habit[];
   settings: AppSettings;
   nowIso: string;
   previousPlanVersion?: number;
+  userProfile?: UserProfile | null;
 };
 
 export type PlanSuggestion = {
@@ -154,10 +170,29 @@ export type PlanSuggestion = {
 export type PlannerOutput = {
   planVersion: number;
   sessions: Session[];
-  breaks: BreakSession[];
   unscheduledTasks: Task[];
   suggestions: PlanSuggestion[];
   generatedAt: string;
 };
 
 export type PlanRecord = PlannerOutput;
+
+export type EnergyLevel = "low" | "medium" | "high";
+
+export type UserProfile = {
+  id: ID;
+  gradeLevel: string;
+  goals: string[];
+  weakSubjects: string[];
+  strongSubjects: string[];
+  learningPace: "slow" | "balanced" | "fast";
+  energyPreferences: {
+    morning: EnergyLevel;
+    afternoon: EnergyLevel;
+    evening: EnergyLevel;
+  };
+  dailyLimitPreference: number;
+  favoriteBreakPreset: string;
+  timezone: string;
+  updatedAt: string;
+};

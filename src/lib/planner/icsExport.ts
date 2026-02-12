@@ -19,18 +19,21 @@ export function planToIcs(plan: PlannerOutput): string {
   lines.push("PRODID:-//StudyFlow//Planner 1.0//VI");
   lines.push("CALSCALE:GREGORIAN");
 
-  plan.sessions.forEach((session) => {
+  plan.sessions
+    .filter((session) => session.source !== "break")
+    .forEach((session) => {
     lines.push("BEGIN:VEVENT");
     lines.push(`UID:${session.id}@studyflow`);
     lines.push(`DTSTAMP:${formatDate(plan.generatedAt)}`);
     lines.push(`DTSTART:${formatDate(session.plannedStart)}`);
     lines.push(`DTEND:${formatDate(session.plannedEnd)}`);
     lines.push(`SUMMARY:${session.subject} · ${session.title}`);
-    lines.push(`DESCRIPTION:${session.successCriteria ?? "Hoàn thành buổi học"}`);
+      const description = session.successCriteria?.join(" • ") ?? "Hoàn thành buổi học";
+      lines.push(`DESCRIPTION:${description}`);
     lines.push(`CATEGORIES:${session.subject}`);
     lines.push(`COLOR:${getColorForSubject(session.subject)}`);
     lines.push("END:VEVENT");
-  });
+    });
 
   lines.push("END:VCALENDAR");
   return lines.join(CRLF);

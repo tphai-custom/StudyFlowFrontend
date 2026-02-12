@@ -33,7 +33,10 @@ export default function TodayPage() {
     refresh();
   };
 
-  const totalMinutes = useMemo(() => sessions.reduce((sum, session) => sum + session.minutes, 0), [sessions]);
+  const totalMinutes = useMemo(
+    () => sessions.filter((session) => session.source !== "break").reduce((sum, session) => sum + session.minutes, 0),
+    [sessions],
+  );
 
   return (
     <div className="space-y-6">
@@ -52,27 +55,50 @@ export default function TodayPage() {
           <p className="text-sm text-zinc-400">Chưa có session nào. Hãy tạo kế hoạch.</p>
         ) : (
           <ul className="space-y-2">
-            {sessions.map((session) => (
-              <li key={session.id} className="flex items-center justify-between rounded-lg border border-zinc-700/60 p-3">
-                <div>
-                  <p className="text-sm text-zinc-400">{session.subject}</p>
-                  <p className="text-lg font-semibold">{session.title}</p>
-                  <p className="text-xs text-zinc-500">
-                    {format(new Date(session.plannedStart), "HH:mm")} · {session.minutes} phút · Tiêu chí: {session.successCriteria ?? "Hoàn thành buổi"}
-                  </p>
-                </div>
-                <button
-                  className={`rounded-lg border px-3 py-1 text-sm ${
-                    session.status === "done"
-                      ? "border-emerald-400 text-emerald-300"
-                      : "border-zinc-600 text-zinc-200"
-                  }`}
-                  onClick={() => toggleSession(session)}
-                >
-                  {session.status === "done" ? "Đã xong" : "Đánh dấu xong"}
-                </button>
-              </li>
-            ))}
+            {sessions.map((session) => {
+              const successCriteriaList = Array.isArray(session.successCriteria)
+                ? session.successCriteria
+                : session.successCriteria
+                ? [session.successCriteria]
+                : [];
+              return (
+                <li key={session.id} className="space-y-2 rounded-lg border border-zinc-700/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase text-zinc-500">
+                        {session.source === "habit" ? "Habit" : session.source === "break" ? "Break" : session.subject}
+                      </p>
+                      <p className="text-lg font-semibold">{session.title}</p>
+                      {session.milestoneTitle && (
+                        <p className="text-xs text-sky-300">Milestone: {session.milestoneTitle}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-zinc-500">
+                      {format(new Date(session.plannedStart), "HH:mm")} · {session.minutes} phút
+                    </span>
+                  </div>
+                  {session.source !== "break" ? (
+                    <p className="text-xs text-emerald-300">
+                      Học gì – đạt gì: {successCriteriaList.length ? successCriteriaList.join(", ") : "Chưa có tiêu chí"}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-300">Khoảng nghỉ ưu tiên giữa hai phiên.</p>
+                  )}
+                  {session.source !== "break" && (
+                    <button
+                      className={`rounded-lg border px-3 py-1 text-sm ${
+                        session.status === "done"
+                          ? "border-emerald-400 text-emerald-300"
+                          : "border-zinc-600 text-zinc-200"
+                      }`}
+                      onClick={() => toggleSession(session)}
+                    >
+                      {session.status === "done" ? "Đã xong" : "Đánh dấu xong"}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

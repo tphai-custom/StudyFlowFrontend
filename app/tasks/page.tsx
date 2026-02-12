@@ -10,10 +10,13 @@ const defaultForm: TaskFormValues = {
   title: "",
   deadline: "",
   difficulty: 3,
-  estimatedMinutes: 60,
+  durationEstimateMin: 1,
+  durationEstimateMax: 2,
+  durationUnit: "hours",
   importance: undefined,
   contentFocus: "",
-  successCriteria: "",
+  successCriteria: ["Hoàn thành mục tiêu chính"],
+  milestones: [],
 };
 
 export default function TasksPage() {
@@ -35,10 +38,14 @@ export default function TasksPage() {
     setStatus("");
     const parsed = taskSchema.safeParse(formValues);
     if (!parsed.success) {
+      const flat = parsed.error.flatten();
       const fieldErrors: Record<string, string> = {};
-      Object.entries(parsed.error.formErrors.fieldErrors).forEach(([field, messages]) => {
+      Object.entries(flat.fieldErrors).forEach(([field, messages]) => {
         if (messages && messages[0]) fieldErrors[field] = messages[0];
       });
+      if (flat.formErrors[0]) {
+        fieldErrors._form = flat.formErrors[0];
+      }
       setErrors(fieldErrors);
       return;
     }
@@ -49,8 +56,54 @@ export default function TasksPage() {
     refresh();
   };
 
-  const handleChange = (field: keyof TaskFormValues, value: string | number | undefined) => {
+  const handleChange = (field: keyof TaskFormValues, value: string | number | undefined | TaskFormValues["successCriteria"] | TaskFormValues["milestones"]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updateSuccessCriterion = (index: number, value: string) => {
+    setFormValues((prev) => {
+      const next = [...prev.successCriteria];
+      next[index] = value;
+      return { ...prev, successCriteria: next };
+    });
+  };
+
+  const addSuccessCriterion = () => {
+    setFormValues((prev) => ({ ...prev, successCriteria: [...prev.successCriteria, ""] }));
+  };
+
+  const removeSuccessCriterion = (index: number) => {
+    setFormValues((prev) => ({
+      ...prev,
+      successCriteria: prev.successCriteria.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const updateMilestone = (index: number, field: "title" | "minutesEstimate", value: string) => {
+    setFormValues((prev) => {
+      const next = prev.milestones ?? [];
+      const draft = [...next];
+      const target = draft[index] ?? { title: "", minutesEstimate: 30 };
+      draft[index] = {
+        ...target,
+        [field]: field === "minutesEstimate" ? Number(value) : value,
+      };
+      return { ...prev, milestones: draft };
+    });
+  };
+
+  const addMilestone = () => {
+    setFormValues((prev) => ({
+      ...prev,
+      milestones: [...(prev.milestones ?? []), { title: "", minutesEstimate: 30 }],
+    }));
+  };
+
+  const removeMilestone = (index: number) => {
+    setFormValues((prev) => ({
+      ...prev,
+      milestones: (prev.milestones ?? []).filter((_, idx) => idx !== index),
+    }));
   };
 
   return (
@@ -58,7 +111,7 @@ export default function TasksPage() {
       <header>
         <h1 className="text-2xl font-semibold">Nhiệm vụ học tập</h1>
         <p className="text-sm text-zinc-400">
-          Nhập nhiệm vụ thật với đầy đủ deadline, độ khó và tiêu chí. Mọi lỗi sẽ hiện ngay dưới ô nhập.
+          Nhập nhiệm vụ thật với đầy đủ deadline, độ khó và tiêu chí checklist. Mọi lỗi hiển thị ngay dưới trường nhập.
         </p>
       </header>
       <section className="card">
@@ -110,20 +163,39 @@ export default function TasksPage() {
             {errors.difficulty && <p className="text-sm text-red-400">{errors.difficulty}</p>}
           </div>
           <div className="grid gap-1">
-            <label className="text-sm text-zinc-300">Thời lượng (phút)*</label>
-            <input
-              type="number"
-              min={10}
-              max={600}
-              className="rounded-lg border border-zinc-700 bg-transparent p-2"
-              value={formValues.estimatedMinutes}
-              onChange={(e) => handleChange("estimatedMinutes", Number(e.target.value))}
-            />
-            {errors.estimatedMinutes ? (
-              <p className="text-sm text-red-400">{errors.estimatedMinutes}</p>
-            ) : (
-              <p className="text-xs text-zinc-500">Giữ trong 10-600 phút để kế hoạch thực tế.</p>
+            <label className="text-sm text-zinc-300">Ước lượng thời gian*</label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="number"
+                min={1}
+                className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
+                value={formValues.durationEstimateMin}
+                onChange={(e) => handleChange("durationEstimateMin", Number(e.target.value))}
+              />
+              <span className="self-center text-sm text-zinc-500">–</span>
+              <input
+                type="number"
+                min={1}
+                className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
+                value={formValues.durationEstimateMax}
+                onChange={(e) => handleChange("durationEstimateMax", Number(e.target.value))}
+              />
+              <select
+                className="rounded-lg border border-zinc-700 bg-transparent p-2"
+                value={formValues.durationUnit}
+                onChange={(e) => handleChange("durationUnit", e.target.value as TaskFormValues["durationUnit"])}
+              >
+                <option value="hours">Giờ</option>
+                <option value="minutes">Phút</option>
+              </select>
+            </div>
+            {errors.durationEstimateMin && (
+              <p className="text-sm text-red-400">{errors.durationEstimateMin}</p>
             )}
+            {errors.durationEstimateMax && (
+              <p className="text-sm text-red-400">{errors.durationEstimateMax}</p>
+            )}
+            <p className="text-xs text-zinc-500">Ví dụ: 6–8 giờ (StudyFlow sẽ chia nhỏ thành các phiên).</p>
           </div>
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Mức quan trọng (1-3)</label>
@@ -150,14 +222,85 @@ export default function TasksPage() {
               placeholder="Ví dụ: Giải 3 dạng chính, note lỗi hay gặp"
             />
           </div>
-          <div className="grid gap-1">
-            <label className="text-sm text-zinc-300">Tiêu chí thành công</label>
-            <input
-              className="rounded-lg border border-zinc-700 bg-transparent p-2"
-              value={formValues.successCriteria}
-              onChange={(e) => handleChange("successCriteria", e.target.value)}
-              placeholder=">= 8/10 câu đúng"
-            />
+          <div className="grid gap-2">
+            <div>
+              <label className="text-sm text-zinc-300">Tiêu chí thành công (checklist)*</label>
+              <p className="text-xs text-zinc-500">Mỗi dòng là một tiêu chí. Planner sẽ hiển thị "Học gì – đạt gì".</p>
+            </div>
+            <div className="space-y-2">
+              {formValues.successCriteria.map((criteria, index) => (
+                <div key={`criteria-${index}`} className="flex gap-2">
+                  <input
+                    className="flex-1 rounded-lg border border-zinc-700 bg-transparent p-2"
+                    value={criteria}
+                    onChange={(e) => updateSuccessCriterion(index, e.target.value)}
+                    placeholder=">= 8/10 câu đúng"
+                  />
+                  {formValues.successCriteria.length > 1 && (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-red-500/40 px-3 text-sm text-red-300"
+                      onClick={() => removeSuccessCriterion(index)}
+                    >
+                      Xoá
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="text-sm text-emerald-400"
+                onClick={addSuccessCriterion}
+              >
+                + Thêm tiêu chí
+              </button>
+              {errors.successCriteria && <p className="text-sm text-red-400">{errors.successCriteria}</p>}
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <div>
+              <label className="text-sm text-zinc-300">Milestones (tuỳ chọn)</label>
+              <p className="text-xs text-zinc-500">Dùng để auto split ví dụ "Ôn công thức 60p".</p>
+            </div>
+            <div className="space-y-3">
+              {(formValues.milestones ?? []).map((milestone, index) => (
+                <div key={`milestone-${index}`} className="rounded-lg border border-zinc-700/60 p-3">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+                    <input
+                      className="rounded-lg border border-zinc-700 bg-transparent p-2"
+                      value={milestone.title}
+                      onChange={(e) => updateMilestone(index, "title", e.target.value)}
+                      placeholder="Tên mốc ví dụ Ôn công thức"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={5}
+                        max={480}
+                        className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
+                        value={milestone.minutesEstimate}
+                        onChange={(e) => updateMilestone(index, "minutesEstimate", e.target.value)}
+                      />
+                      <span className="text-xs text-zinc-500">phút</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs text-red-300"
+                    onClick={() => removeMilestone(index)}
+                  >
+                    Xoá mốc này
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="text-sm text-emerald-400"
+                onClick={addMilestone}
+              >
+                + Thêm milestone
+              </button>
+            </div>
           </div>
           <button
             type="submit"
@@ -165,6 +308,7 @@ export default function TasksPage() {
           >
             Lưu nhiệm vụ
           </button>
+          {errors._form && <p className="text-sm text-red-400">{errors._form}</p>}
           {status && <p className="text-sm text-emerald-400">{status}</p>}
         </form>
       </section>
@@ -177,12 +321,50 @@ export default function TasksPage() {
             {tasks.map((task) => (
               <li key={task.id} className="rounded-lg border border-zinc-700/60 p-3">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="space-y-1">
                     <p className="text-xs uppercase text-zinc-500">{task.subject}</p>
                     <p className="text-lg font-semibold">{task.title}</p>
                     <p className="text-sm text-zinc-400">
                       Deadline {new Date(task.deadline).toLocaleString("vi-VN")} · Độ khó {task.difficulty}
                     </p>
+                    <p className="text-xs text-zinc-500">
+                      {(() => {
+                        const minMinutes = task.durationEstimateMin ?? task.estimatedMinutes;
+                        const maxMinutes = task.durationEstimateMax ?? task.estimatedMinutes;
+                        const unit = task.durationUnit ?? "minutes";
+                        if (unit === "hours") {
+                          const minHours = (minMinutes / 60).toFixed(1);
+                          const maxHours = (maxMinutes / 60).toFixed(1);
+                          return `Ước lượng: ${minHours}–${maxHours} giờ`;
+                        }
+                        return `Ước lượng: ${minMinutes}–${maxMinutes} phút`;
+                      })()}
+                    </p>
+                    <div>
+                      <p className="text-xs text-zinc-500">Tiêu chí:</p>
+                      <ul className="list-disc pl-4 text-xs text-zinc-400">
+                        {(Array.isArray(task.successCriteria)
+                          ? task.successCriteria
+                          : task.successCriteria
+                          ? [task.successCriteria]
+                          : ["Hoàn thành buổi học"]
+                        ).map((criteria, idx) => (
+                          <li key={`${task.id}-criteria-${idx}`}>{criteria}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    {task.milestones && (
+                      <div>
+                        <p className="text-xs text-zinc-500">Milestones:</p>
+                        <ul className="list-disc pl-4 text-xs text-zinc-400">
+                          {task.milestones.map((milestone) => (
+                            <li key={milestone.id}>
+                              {milestone.title} – {milestone.minutesEstimate}p
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                   <button
                     className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"

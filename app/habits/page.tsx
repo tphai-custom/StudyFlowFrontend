@@ -2,11 +2,13 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { listHabits, saveHabit, deleteHabit } from "@/src/lib/storage/habitsRepo";
+import { rebuildPlan } from "@/src/lib/planner/planService";
 import { Habit } from "@/src/lib/types";
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [form, setForm] = useState({ name: "", cadence: "daily", minutes: 15, weekday: 1 });
+  const [status, setStatus] = useState<string>("");
 
   const refresh = async () => setHabits(await listHabits());
 
@@ -23,7 +25,9 @@ export default function HabitsPage() {
       weekday: form.cadence === "weekly" ? form.weekday : undefined,
     });
     setForm({ name: "", cadence: "daily", minutes: 15, weekday: 1 });
-    refresh();
+    await refresh();
+    await rebuildPlan();
+    setStatus("Đã lưu habit và cập nhật kế hoạch.");
   };
 
   return (
@@ -31,6 +35,7 @@ export default function HabitsPage() {
       <header>
         <h1 className="text-2xl font-semibold">Habits & Break presets</h1>
         <p className="text-sm text-zinc-400">Thêm thói quen ngắn và preset nghỉ để planner tự chèn.</p>
+        {status && <p className="text-xs text-emerald-400">{status}</p>}
       </header>
       <section className="card">
         <form className="grid gap-4 sm:grid-cols-4" onSubmit={handleSubmit}>
@@ -96,7 +101,12 @@ export default function HabitsPage() {
                 </div>
                 <button
                   className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
-                  onClick={() => deleteHabit(habit.id).then(refresh)}
+                  onClick={async () => {
+                    await deleteHabit(habit.id);
+                    await refresh();
+                    await rebuildPlan();
+                    setStatus("Đã xóa habit và cập nhật kế hoạch.");
+                  }}
                 >
                   Xoá
                 </button>

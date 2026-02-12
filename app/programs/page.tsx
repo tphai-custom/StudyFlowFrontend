@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addDays } from "date-fns";
 import { programs } from "@/src/lib/seed/demoData";
 import { saveTask } from "@/src/lib/storage/tasksRepo";
+import { TaskFormValues } from "@/src/lib/validation/taskSchema";
 
 export default function ProgramsPage() {
   const [status, setStatus] = useState<string>("");
@@ -21,11 +22,14 @@ export default function ProgramsPage() {
             title: `${program.name} · ${milestone.title}`,
             deadline,
             difficulty: task.difficulty,
-            estimatedMinutes: task.estimatedMinutes,
+            durationEstimateMin: task.estimatedMinutes,
+            durationEstimateMax: task.estimatedMinutes,
+            durationUnit: "minutes",
             importance: 3,
             contentFocus: milestone.title,
-            successCriteria: milestone.successCriteria,
-          }),
+            successCriteria: [milestone.successCriteria],
+            milestones: [{ title: milestone.title, minutesEstimate: task.estimatedMinutes }],
+          } satisfies TaskFormValues),
         );
       });
     });

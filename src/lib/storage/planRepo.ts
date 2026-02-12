@@ -28,9 +28,11 @@ export async function updateSessionStatus(
   const latest = history[latestIndex];
   const sessionIndex = latest.sessions.findIndex((session) => session.id === sessionId);
   if (sessionIndex < 0) return;
+  const completedAt = status === "done" ? new Date().toISOString() : null;
   latest.sessions[sessionIndex] = {
     ...latest.sessions[sessionIndex],
     status,
+    completedAt,
   };
   await writeStore(STORE, history);
 }
