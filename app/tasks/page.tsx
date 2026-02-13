@@ -87,6 +87,8 @@ export default function TasksPage() {
   // Check for feasibility warnings
   const getFeasibilityWarnings = () => {
     const warnings: string[] = [];
+    
+    // Convert estimate to minutes for comparison
     const estimateMinutes =
       formValues.durationUnit === "hours"
         ? formValues.durationEstimateMax * 60

@@ -48,8 +48,8 @@ export default function FreeTimePage() {
     const result = cleanSlots(slots);
     setCleaningReport(result.warnings);
     
-    // Update the slots list to show cleaned version
-    // Note: In a real implementation, you'd save these back to storage
+    // Note: In a full implementation, cleaned slots would be saved back to storage
+    // For now, the cleaned view is shown in the "Sau khi làm sạch" section
   };
 
   const handleUndo = () => {

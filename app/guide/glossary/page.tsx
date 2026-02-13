@@ -68,7 +68,7 @@ const GLOSSARY_TERMS = [
     example: "Ví dụ: Điểm 85 = Tốt (kế hoạch rất khả thi), điểm 50 = Cần cải thiện (có thể quá tải).",
   },
   {
-    term: "Xem theo cấp (drill-down)",
+    term: "Xem theo cấp",
     definition:
       "Xem kế hoạch từ tổng quan (tuần/tháng) → chi tiết (ngày) → chi tiết hơn (phiên học cụ thể).",
     example: "Ví dụ: Xem lịch tuần → bấm vào Thứ 2 → xem các phiên học trong ngày → bấm phiên Toán → xem chi tiết nhiệm vụ.",
