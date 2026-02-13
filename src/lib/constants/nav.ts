@@ -10,6 +10,15 @@ export type NavSection = {
 };
 
 export const NAV_SECTIONS: NavSection[] = [
+  {
+    label: "Giới thiệu & Hướng dẫn",
+    children: [
+      { href: "/guide/quick-start", label: "Bắt đầu nhanh (3 bước)" },
+      { href: "/guide/best-practices", label: "Cách dùng tối ưu" },
+      { href: "/guide/glossary", label: "Giải thích thuật ngữ" },
+      { href: "/guide/faq", label: "Câu hỏi thường gặp" },
+    ],
+  },
   { href: "/dashboard", label: "Tổng quan" },
   { href: "/tasks", label: "Nhiệm vụ" },
   { href: "/free-time", label: "Thời gian rảnh" },
@@ -25,10 +34,10 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   { href: "/today", label: "Hôm nay" },
-  { href: "/habits", label: "Habits" },
+  { href: "/habits", label: "Thói quen" },
   { href: "/stats", label: "Thống kê" },
-  { href: "/templates", label: "Templates" },
-  { href: "/programs", label: "Programs" },
+  { href: "/templates", label: "Kế hoạch mẫu" },
+  { href: "/programs", label: "Chương trình học" },
   { href: "/library", label: "Thư viện" },
   {
     href: "/settings",
