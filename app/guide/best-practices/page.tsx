@@ -87,8 +87,8 @@ export default function BestPracticesPage() {
         <div className="card">
           <h2 className="text-xl font-semibold mb-3">7. Kiểm tra Điểm khả thi</h2>
           <p className="text-sm text-zinc-300 mb-2">
-            Sau khi tạo kế hoạch, xem "Điểm khả thi" (0-100). Nếu điểm thấp (<60), hãy xem
-            phần "Gợi ý điều chỉnh" và áp dụng các đề xuất.
+            Sau khi tạo kế hoạch, xem &quot;Điểm khả thi&quot; (0-100). Nếu điểm thấp (&lt;60), hãy xem
+            phần &quot;Gợi ý điều chỉnh&quot; và áp dụng các đề xuất.
           </p>
         </div>
 

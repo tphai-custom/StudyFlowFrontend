@@ -21,6 +21,8 @@ export default function FreeTimePage() {
   const [slots, setSlots] = useState<FreeSlot[]>([]);
   const [form, setForm] = useState({ weekday: 1, startTime: "19:00", endTime: "20:30" });
   const [error, setError] = useState<string>("");
+  const [slotHistory, setSlotHistory] = useState<FreeSlot[][]>([]);
+  const [cleaningReport, setCleaningReport] = useState<string[]>([]);
 
   const refresh = async () => setSlots(await listSlots());
 
@@ -39,6 +41,26 @@ export default function FreeTimePage() {
     }
   };
 
+  const handleClean = async () => {
+    // Save current slots to history before cleaning
+    setSlotHistory([...slotHistory, slots]);
+    
+    const result = cleanSlots(slots);
+    setCleaningReport(result.warnings);
+    
+    // Update the slots list to show cleaned version
+    // Note: In a real implementation, you'd save these back to storage
+  };
+
+  const handleUndo = () => {
+    if (slotHistory.length > 0) {
+      const previousSlots = slotHistory[slotHistory.length - 1];
+      setSlots(previousSlots);
+      setSlotHistory(slotHistory.slice(0, -1));
+      setCleaningReport([]);
+    }
+  };
+
   const cleaned = useMemo(() => cleanSlots(slots), [slots]);
 
   return (
@@ -47,6 +69,11 @@ export default function FreeTimePage() {
         <h1 className="text-2xl font-semibold">Giờ rảnh mỗi tuần</h1>
         <p className="text-sm text-zinc-400">Chỉ những slot hợp lệ mới được dùng tạo kế hoạch.</p>
       </header>
+      
+      <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 text-sm text-sky-200">
+        💡 <strong>Mẹo:</strong> Dùng phím Tab để di chuyển giữa các trường nhanh hơn. Slot sẽ được tự động làm sạch (gộp, cắt, làm tròn) trước khi xếp lịch.
+      </div>
+
       <section className="card">
         <form className="grid gap-4 sm:grid-cols-4" onSubmit={handleSubmit}>
           <div className="grid gap-1">
@@ -89,7 +116,17 @@ export default function FreeTimePage() {
         <p className="mt-2 text-xs text-zinc-500">Slot kết thúc trước bắt đầu sẽ bị chặn ngay.</p>
       </section>
       <section className="card space-y-3">
-        <h2 className="text-lg font-semibold">Slot đã nhập</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Slot đã nhập</h2>
+          {slotHistory.length > 0 && (
+            <button
+              className="rounded-lg border border-yellow-500/50 px-3 py-1 text-sm text-yellow-300 hover:bg-yellow-500/10"
+              onClick={handleUndo}
+            >
+              ↺ Hoàn tác
+            </button>
+          )}
+        </div>
         {slots.length === 0 ? (
           <p className="text-sm text-zinc-400">Chưa có slot. Hãy thêm thời gian rảnh thật sự.</p>
         ) : (
@@ -115,6 +152,9 @@ export default function FreeTimePage() {
       </section>
       <section className="card space-y-3">
         <h2 className="text-lg font-semibold">Sau khi làm sạch</h2>
+        <p className="text-xs text-zinc-500">
+          Hệ thống tự động gộp slot trùng, cắt slot quá dài (&gt;3 giờ), và làm tròn phút lẻ.
+        </p>
         {cleaned.slots.length === 0 ? (
           <p className="text-sm text-zinc-400">Chưa có slot hợp lệ.</p>
         ) : (

@@ -19,6 +19,28 @@ const defaultForm: TaskFormValues = {
   milestones: [],
 };
 
+const exampleTask: TaskFormValues = {
+  subject: "Toán",
+  title: "Ôn kiểm tra chương 3: Hàm số bậc 2",
+  deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
+  difficulty: 3,
+  durationEstimateMin: 6,
+  durationEstimateMax: 8,
+  durationUnit: "hours",
+  importance: 2,
+  contentFocus: "Giải 3 dạng chính: tìm đỉnh, vẽ đồ thị, tìm giao điểm. Note lỗi hay gặp.",
+  successCriteria: [
+    "Giải đúng 8/10 bài tập mẫu",
+    "Nhớ công thức đỉnh và delta",
+    "Vẽ được đồ thị chuẩn",
+  ],
+  milestones: [
+    { title: "Ôn lý thuyết và công thức", minutesEstimate: 90 },
+    { title: "Làm bài tập 3 dạng", minutesEstimate: 120 },
+    { title: "Xem lại lỗi và làm thêm đề", minutesEstimate: 60 },
+  ],
+};
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [formValues, setFormValues] = useState<TaskFormValues>(defaultForm);
@@ -52,9 +74,44 @@ export default function TasksPage() {
     await saveTask(parsed.data);
     setFormValues(defaultForm);
     setErrors({});
-    setStatus("Đã lưu nhiệm vụ.");
+    setStatus("✓ Đã lưu nhiệm vụ thành công");
     refresh();
   };
+
+  const handleFillExample = () => {
+    setFormValues(exampleTask);
+    setErrors({});
+    setStatus("Đã điền ví dụ. Bạn có thể chỉnh sửa trước khi lưu.");
+  };
+
+  // Check for feasibility warnings
+  const getFeasibilityWarnings = () => {
+    const warnings: string[] = [];
+    const estimateMinutes =
+      formValues.durationUnit === "hours"
+        ? formValues.durationEstimateMax * 60
+        : formValues.durationEstimateMax;
+    
+    if (estimateMinutes > 480) {
+      warnings.push(
+        "⚠️ Ước lượng khá lớn (>8 giờ). Cân nhắc chia nhỏ thành nhiều task hoặc dùng milestones."
+      );
+    }
+
+    if (formValues.deadline) {
+      const deadlineDate = new Date(formValues.deadline);
+      const hoursUntilDeadline = (deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (hoursUntilDeadline < 48) {
+        warnings.push(
+          "⚠️ Deadline rất gần (<2 ngày)! Đảm bảo có đủ slot rảnh để hoàn thành."
+        );
+      }
+    }
+
+    return warnings;
+  };
+
+  const feasibilityWarnings = getFeasibilityWarnings();
 
   const handleChange = (field: keyof TaskFormValues, value: string | number | undefined | TaskFormValues["successCriteria"] | TaskFormValues["milestones"]) => {
     setFormValues((prev) => ({ ...prev, [field]: value }));
@@ -115,14 +172,27 @@ export default function TasksPage() {
         </p>
       </header>
       <section className="card">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Tạo nhiệm vụ mới</h2>
+          <button
+            type="button"
+            onClick={handleFillExample}
+            className="rounded-lg border border-emerald-500/50 px-4 py-2 text-sm text-emerald-400 hover:bg-emerald-500/10"
+          >
+            💡 Điền thử bằng ví dụ
+          </button>
+        </div>
         <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 text-xs text-sky-200">
+            💡 <strong>Mẹo:</strong> Nhấn Tab để chuyển trường nhanh, Enter để thêm tiêu chí mới
+          </div>
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Môn học*</label>
             <input
               className="rounded-lg border border-zinc-700 bg-transparent p-2"
               value={formValues.subject}
               onChange={(e) => handleChange("subject", e.target.value)}
-              placeholder="Ví dụ: Toán"
+              placeholder="Ví dụ: Toán, Vật lý, Tiếng Anh"
             />
             {errors.subject && <p className="text-sm text-red-400">{errors.subject}</p>}
           </div>
@@ -132,7 +202,7 @@ export default function TasksPage() {
               className="rounded-lg border border-zinc-700 bg-transparent p-2"
               value={formValues.title}
               onChange={(e) => handleChange("title", e.target.value)}
-              placeholder="Ôn kiểm tra chương 3"
+              placeholder="Ví dụ: Ôn kiểm tra chương 3, Làm bài tập tuần 5"
             />
             {errors.title && <p className="text-sm text-red-400">{errors.title}</p>}
           </div>
@@ -197,6 +267,18 @@ export default function TasksPage() {
             )}
             <p className="text-xs text-zinc-500">Ví dụ: 6–8 giờ (StudyFlow sẽ chia nhỏ thành các phiên).</p>
           </div>
+
+          {/* Feasibility Warnings */}
+          {feasibilityWarnings.length > 0 && (
+            <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 space-y-1">
+              {feasibilityWarnings.map((warning, index) => (
+                <p key={index} className="text-sm text-yellow-200">
+                  {warning}
+                </p>
+              ))}
+            </div>
+          )}
+
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Mức quan trọng (1-3)</label>
             <input
