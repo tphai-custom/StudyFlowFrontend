@@ -15,6 +15,8 @@ import {
 import { getLatestPlan } from "@/src/lib/storage/planRepo";
 import { listTasks } from "@/src/lib/storage/tasksRepo";
 import { PlanRecord, Task } from "@/src/lib/types";
+import { getSettings } from "@/src/lib/storage/settingsRepo";
+import { getBrowserTimezone, getDayKeyFromDate, getDayKeyFromISO } from "@/src/lib/datetime";
 
 const VIEW_LABEL = {
   week: "tuần",
@@ -27,14 +29,17 @@ export default function StatsPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [statsView, setStatsView] = useState<"week" | "month" | "year">("week");
   const [includePlanned, setIncludePlanned] = useState(false);
+  const browserTimezone = getBrowserTimezone();
+  const [timezone, setTimezone] = useState(browserTimezone);
 
   useEffect(() => {
     (async () => {
-      const [planRecord, taskList] = await Promise.all([getLatestPlan(), listTasks()]);
+      const [planRecord, taskList, appSettings] = await Promise.all([getLatestPlan(), listTasks(), getSettings()]);
       setPlan(planRecord);
       setTasks(taskList);
+      setTimezone(appSettings.timezone ?? browserTimezone);
     })();
-  }, []);
+  }, [browserTimezone]);
 
   const range = useMemo(() => {
     const now = new Date();
@@ -76,9 +81,9 @@ export default function StatsPage() {
     const completion = sessionsInRange.length
       ? Math.round((completedSessions.length / sessionsInRange.length) * 100)
       : 0;
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = getDayKeyFromDate(new Date(), timezone);
     const todayMinutes = focusSessions
-      .filter((session) => session.plannedStart.startsWith(todayKey))
+      .filter((session) => getDayKeyFromISO(session.plannedStart, timezone) === todayKey)
       .filter((session) => (includePlanned ? true : session.status === "done" && session.completedAt))
       .reduce((sum, session) => sum + session.minutes, 0);
     return {
@@ -89,7 +94,7 @@ export default function StatsPage() {
       totalSessions: sessionsInRange.length,
       completedSessions: completedSessions.length,
     };
-  }, [plan, range, includePlanned]);
+  }, [plan, range, includePlanned, timezone]);
 
   const rangeLabel = `${format(range.start, "dd/MM")} - ${format(range.end, "dd/MM")}`;
 

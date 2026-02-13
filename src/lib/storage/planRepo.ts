@@ -16,6 +16,12 @@ export async function savePlan(record: PlanRecord): Promise<void> {
   const history = await getPlanHistory();
   history.push(record);
   await writeStore(STORE, history.slice(-5));
+  const sortedSessions = [...record.sessions].sort((a, b) => a.plannedStart.localeCompare(b.plannedStart));
+  console.info("[SESSIONS_PERSIST]", {
+    totalSessions: record.sessions.length,
+    firstSession: sortedSessions[0]?.plannedStart ?? null,
+    lastSession: sortedSessions.at(-1)?.plannedEnd ?? sortedSessions.at(-1)?.plannedStart ?? null,
+  });
 }
 
 export async function updateSessionStatus(

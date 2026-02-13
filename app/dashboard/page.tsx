@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [slotsCount, setSlotsCount] = useState(0);
   const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
   const [completionRate, setCompletionRate] = useState(0);
+  const [plan, setPlan] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
@@ -24,6 +25,7 @@ export default function DashboardPage() {
       ]);
       setTasks(taskList);
       setSlotsCount(slotList.length);
+      setPlan(plan);
       if (plan) {
         const futureSessions = plan.sessions
           .filter((session) => new Date(session.plannedStart) > new Date())

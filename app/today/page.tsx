@@ -1,36 +1,70 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import Link from "next/link";
 import { getLatestPlan, updateSessionStatus } from "@/src/lib/storage/planRepo";
 import { Session } from "@/src/lib/types";
+import { getSettings } from "@/src/lib/storage/settingsRepo";
+import { getBrowserTimezone, getDayKeyFromDate, getDayKeyFromISO } from "@/src/lib/datetime";
 
 export default function TodayPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [status, setStatus] = useState<string>("");
+  const browserTimezone = getBrowserTimezone();
+  const [timezone, setTimezone] = useState<string>(browserTimezone);
+  const [nextSessionDayKey, setNextSessionDayKey] = useState<string | null>(null);
 
-  const refresh = async () => {
+  useEffect(() => {
+    (async () => {
+      const appSettings = await getSettings();
+      setTimezone(appSettings.timezone ?? browserTimezone);
+    })();
+  }, [browserTimezone]);
+
+  const refresh = useCallback(async () => {
     const plan = await getLatestPlan();
-    const todayKey = new Date().toISOString().slice(0, 10);
-    const filtered = plan?.sessions.filter((session) => session.plannedStart.startsWith(todayKey)) ?? [];
+    const todayKey = getDayKeyFromDate(new Date(), timezone);
+    const sessionsWithKeys =
+      plan?.sessions
+        .map((session) => ({
+          session,
+          dayKey: getDayKeyFromISO(session.plannedStart, timezone),
+        }))
+        .sort((a, b) => a.session.plannedStart.localeCompare(b.session.plannedStart)) ?? [];
+    console.info("[TODAY_FETCH]", {
+      timezone,
+      todayKey,
+      planVersion: plan?.planVersion ?? null,
+      totalSessions: plan?.sessions.length ?? 0,
+    });
+    const filtered = sessionsWithKeys.filter((entry) => entry.dayKey === todayKey).map((entry) => entry.session);
+    const nextAvailable = sessionsWithKeys.find((entry) => entry.dayKey >= todayKey);
+    setNextSessionDayKey(nextAvailable?.dayKey ?? null);
+    console.info("[TODAY_FILTER]", {
+      timezone,
+      todayKey,
+      matchedSessions: filtered.length,
+      nextSessionDayKey: nextAvailable?.dayKey ?? null,
+    });
     setSessions(filtered);
-  };
+  }, [timezone]);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   const toggleSession = async (session: Session) => {
     const nextStatus = session.status === "done" ? "pending" : "done";
     await updateSessionStatus(session.id, nextStatus);
     setStatus(`Đã cập nhật ${session.title}`);
-    refresh();
+    await refresh();
   };
 
   const skipDay = async () => {
     await Promise.all(sessions.map((session) => updateSessionStatus(session.id, "skipped")));
     setStatus("Đã đánh dấu bận hôm nay. Hãy tạo lại plan nếu cần.");
-    refresh();
+    await refresh();
   };
 
   const totalMinutes = useMemo(
@@ -52,7 +86,18 @@ export default function TodayPage() {
       </header>
       <section className="card space-y-3">
         {sessions.length === 0 ? (
-          <p className="text-sm text-zinc-400">Chưa có session nào. Hãy tạo kế hoạch.</p>
+          <div className="space-y-3 text-sm text-zinc-400">
+            <p>Hôm nay không có phiên học.</p>
+            <p>Kiểm tra kế hoạch hoặc tạo thêm phiên nếu muốn tiếp tục học.</p>
+            {nextSessionDayKey && (
+              <Link
+                href={`/plan?view=day#${nextSessionDayKey}`}
+                className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300"
+              >
+                Xem ngày gần nhất có phiên · {nextSessionDayKey}
+              </Link>
+            )}
+          </div>
         ) : (
           <ul className="space-y-2">
             {sessions.map((session) => {

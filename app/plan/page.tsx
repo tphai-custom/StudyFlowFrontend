@@ -8,6 +8,8 @@ import { listTasks } from "@/src/lib/storage/tasksRepo";
 import { listSlots } from "@/src/lib/storage/slotsRepo";
 import { rebuildPlan, exportPlan } from "@/src/lib/planner/planService";
 import { PlanRecord, Session } from "@/src/lib/types";
+import { getSettings } from "@/src/lib/storage/settingsRepo";
+import { getBrowserTimezone, getDayKeyFromDate, getDayKeyFromISO, getMonthKeyFromISO } from "@/src/lib/datetime";
 
 const views = [
   { key: "year", label: "Năm" },
@@ -19,9 +21,9 @@ const views = [
 
 type ViewKey = (typeof views)[number]["key"];
 
-const groupSessions = (sessions: Session[]) => {
+const groupSessions = (sessions: Session[], timeZone: string) => {
   return sessions.reduce<Record<string, Session[]>>((acc, session) => {
-    const key = session.plannedStart.slice(0, 10);
+    const key = getDayKeyFromISO(session.plannedStart, timeZone);
     acc[key] = acc[key] ? [...acc[key], session] : [session];
     return acc;
   }, {});
@@ -42,13 +44,16 @@ export default function PlanPage() {
   const [view, setView] = useState<ViewKey>("week");
   const [status, setStatus] = useState("Chưa tạo kế hoạch");
   const [loading, setLoading] = useState(false);
+  const browserTimezone = getBrowserTimezone();
+  const [timezone, setTimezone] = useState<string>(browserTimezone);
 
   useEffect(() => {
     (async () => {
-      const [taskList, slotList, planRecord] = await Promise.all([
+      const [taskList, slotList, planRecord, appSettings] = await Promise.all([
         listTasks(),
         listSlots(),
         getLatestPlan(),
+        getSettings(),
       ]);
       setTaskCount(taskList.length);
       setSlotCount(slotList.length);
@@ -56,8 +61,9 @@ export default function PlanPage() {
       if (planRecord) {
         setStatus(`Plan v${planRecord.planVersion}`);
       }
+      setTimezone(appSettings.timezone ?? browserTimezone);
     })();
-  }, []);
+  }, [browserTimezone]);
 
   useEffect(() => {
     const requestedView = (searchParams?.get("view") as ViewKey) ?? "week";
@@ -66,8 +72,8 @@ export default function PlanPage() {
 
   const groupedSessions = useMemo(() => {
     const focusSessions = plan?.sessions.filter((session) => session.source !== "break") ?? [];
-    return groupSessions(focusSessions);
-  }, [plan]);
+    return groupSessions(focusSessions, timezone);
+  }, [plan, timezone]);
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -87,6 +93,17 @@ export default function PlanPage() {
       }
       const focusSessions = newPlan.sessions.filter((session) => session.source !== "break");
       setStatus(`Đã tạo ${focusSessions.length} phiên học/ thói quen`);
+      const sortedSessions = [...newPlan.sessions].sort((a, b) =>
+        a.plannedStart.localeCompare(b.plannedStart),
+      );
+      console.info("[PLAN_CREATE]", {
+        totalSessions: newPlan.sessions.length,
+        focusSessions: focusSessions.length,
+        firstSession: sortedSessions[0]?.plannedStart ?? null,
+        lastSession: sortedSessions.at(-1)?.plannedEnd ?? sortedSessions.at(-1)?.plannedStart ?? null,
+        timezone,
+        storage: typeof window !== "undefined" && "indexedDB" in window ? "indexedDB" : "localStorage",
+      });
       setPlan(newPlan);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Không tạo được kế hoạch");
@@ -112,7 +129,7 @@ export default function PlanPage() {
 
     if (view === "year") {
       const months = focusSessions.reduce<Record<string, number>>((acc, session) => {
-        const key = session.plannedStart.slice(0, 7);
+        const key = getMonthKeyFromISO(session.plannedStart, timezone);
         acc[key] = (acc[key] ?? 0) + 1;
         return acc;
       }, {});
@@ -170,7 +187,7 @@ export default function PlanPage() {
     }
 
     if (view === "day") {
-      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayKey = getDayKeyFromDate(new Date(), timezone);
       const todaySessions = groupedSessions[todayKey] ?? [];
       return todaySessions.length === 0 ? (
         <p className="text-sm text-zinc-400">Hôm nay không có session nào.</p>
@@ -208,7 +225,7 @@ export default function PlanPage() {
       const monthly = focusSessions.reduce<
         Record<string, { minutes: number; subjects: Record<string, number> }>
       >((acc, session) => {
-        const key = session.plannedStart.slice(0, 7);
+        const key = getMonthKeyFromISO(session.plannedStart, timezone);
         if (!acc[key]) {
           acc[key] = { minutes: 0, subjects: {} };
         }
