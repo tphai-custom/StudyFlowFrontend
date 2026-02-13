@@ -282,10 +282,10 @@ export default function PlanPage() {
         </div>
         <div className="text-xs">
           <p className="text-zinc-500">
-            Chọn tab để xem kế hoạch theo Năm/Tháng/Tuần/Ngày. Bấm vào một mục để drill-down chi tiết.
+            Chọn tab để xem kế hoạch theo Năm/Tháng/Tuần/Ngày. Bấm vào các mục để xem theo cấp (tổng quan → chi tiết).
           </p>
-          <p className="text-amber-300">
-            Lịch chỉ hiển thị các phiên hợp lệ trong thời gian rảnh.
+          <p className="text-sky-300">
+            💡 Xem theo cấp: Bấm từ lịch tuần để mở chi tiết ngày, bấm vào phiên học để xem chi tiết nhiệm vụ.
           </p>
         </div>
         {renderView()}

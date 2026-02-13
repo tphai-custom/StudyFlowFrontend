@@ -46,13 +46,13 @@ const buildTask = (
 });
 
 export const demoTasks: Task[] = [
-  buildTask("Toán", "Ôn PT bậc 2", 5, 180, 4),
-  buildTask("Văn", "Dàn ý nghị luận", 3, 120, 3),
-  buildTask("KHTN", "Thí nghiệm hoá học", 7, 200, 5),
+  buildTask("Toán", "Ôn PT bậc 2 + Luyện đề", 5, 240, 4),
+  buildTask("Văn", "Dàn ý nghị luận", 3, 150, 3),
+  buildTask("KHTN", "Thí nghiệm hoá học + Báo cáo", 7, 240, 5),
 ];
 
 export const demoSlots: FreeSlot[] = [
-  { id: crypto.randomUUID(), weekday: 1, startTime: "19:00", endTime: "21:00", capacityMinutes: 120, source: "user", createdAt: now.toISOString() },
+  { id: crypto.randomUUID(), weekday: 1, startTime: "19:00", endTime: "20:30", capacityMinutes: 90, source: "user", createdAt: now.toISOString() },
   { id: crypto.randomUUID(), weekday: 3, startTime: "19:30", endTime: "21:00", capacityMinutes: 90, source: "user", createdAt: now.toISOString() },
   { id: crypto.randomUUID(), weekday: 5, startTime: "08:00", endTime: "10:00", capacityMinutes: 120, source: "user", createdAt: now.toISOString() },
 ];
