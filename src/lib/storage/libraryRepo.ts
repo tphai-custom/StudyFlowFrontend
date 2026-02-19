@@ -1,23 +1,18 @@
 import { LibraryItem } from "@/src/lib/types";
-import { readStore, writeStore } from "@/src/lib/storage/db";
-
-const STORE = "library" as const;
+import { apiGet, apiPost } from "@/src/lib/api/client";
 
 export async function listLibrary(): Promise<LibraryItem[]> {
-  return readStore<LibraryItem>(STORE);
+  return apiGet<LibraryItem[]>("/library/");
 }
 
 export async function saveLibraryItems(items: LibraryItem[]): Promise<void> {
-  await writeStore(STORE, items);
+  await apiPost<LibraryItem[]>("/library/", items);
 }
 
 export async function searchLibrary(query: string, subject?: string): Promise<LibraryItem[]> {
-  const items = await listLibrary();
-  return items.filter((item) => {
-    const matchesQuery = query
-      ? `${item.title} ${item.summary}`.toLowerCase().includes(query.toLowerCase())
-      : true;
-    const matchesSubject = subject ? item.subject === subject : true;
-    return matchesQuery && matchesSubject;
-  });
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (subject) params.set("subject", subject);
+  const qs = params.toString();
+  return apiGet<LibraryItem[]>(`/library/${qs ? `?${qs}` : ""}`);
 }

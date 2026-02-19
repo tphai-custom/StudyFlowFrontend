@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { seedDemoData } from "@/src/lib/seed/demoData";
-import { clearStore } from "@/src/lib/storage/db";
+import { apiDelete } from "@/src/lib/api/client";
 
 export default function DemoPage() {
   const [status, setStatus] = useState<string>("");
@@ -14,14 +14,7 @@ export default function DemoPage() {
   };
 
   const handleReset = async () => {
-    await Promise.all([
-      clearStore("tasks"),
-      clearStore("freeSlots"),
-      clearStore("habits"),
-      clearStore("library"),
-      clearStore("plan"),
-      clearStore("feedback"),
-    ]);
+    await apiDelete("/reset");
     setStatus("✅ Đã xoá toàn bộ dữ liệu demo.");
     setShowDeleteConfirm(false);
   };
