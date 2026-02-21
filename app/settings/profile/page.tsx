@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getUserProfile, saveUserProfile } from "@/src/lib/storage/profileRepo";
 import { EnergyLevel, UserProfile } from "@/src/lib/types";
-import { getUser } from "@/src/lib/auth";
+import { getUser, saveAuth, getToken, AuthUser } from "@/src/lib/auth";
+import { authRotateLinkCode } from "@/src/lib/api/auth";
+import { studentIncomingLinks, studentRespondLink, LinkSchema } from "@/src/lib/api/parent";
 
 const BREAK_PRESETS = [
   { value: "Pomodoro 25/5", label: "Pomodoro 25/5 (học 25p – nghỉ 5p)" },
@@ -92,6 +94,10 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [status, setStatus] = useState<string>("");
   const [tzSearch, setTzSearch] = useState("");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [copyMsg, setCopyMsg] = useState("");
+  const [rotateLoading, setRotateLoading] = useState(false);
+  const [incomingLinks, setIncomingLinks] = useState<LinkSchema[]>([]);
   const [form, setForm] = useState({
     gradeLevel: "",
     goals: "",
@@ -109,6 +115,11 @@ export default function UserProfilePage() {
   });
 
   useEffect(() => {
+    const u = getUser();
+    setCurrentUser(u);
+    if (u?.role === "student") {
+      studentIncomingLinks().then(setIncomingLinks).catch(() => {});
+    }
     (async () => {
       const existing = await getUserProfile();
       setProfile(existing);
@@ -186,25 +197,108 @@ export default function UserProfilePage() {
       </header>
 
       {/* Student link code display */}
-      {(() => {
-        const u = getUser();
-        if (u?.role === "student" && u?.link_code) {
-          return (
-            <div className="card flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-zinc-200">Mã liên kết phụ huynh</p>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Chia sẻ mã này với phụ huynh để họ có thể liên kết tài khoản.
-                </p>
-              </div>
-              <span className="rounded-xl bg-emerald-500/15 px-4 py-2 font-mono text-lg font-bold tracking-widest text-emerald-300">
-                {u.link_code}
-              </span>
+      {currentUser?.role === "student" && (
+        <div className="card space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-zinc-200">Mã liên kết phụ huynh</p>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Chia sẻ mã này với phụ huynh để họ liên kết tài khoản theo dõi tiến độ của bạn.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="rounded-xl bg-emerald-500/15 px-4 py-2 font-mono text-lg font-bold tracking-widest text-emerald-300">
+              {currentUser.link_code ?? "—"}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (currentUser.link_code) {
+                  navigator.clipboard.writeText(currentUser.link_code).then(() => {
+                    setCopyMsg("Đã copy!");
+                    setTimeout(() => setCopyMsg(""), 2000);
+                  });
+                }
+              }}
+              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+            >
+              {copyMsg || "Sao chép"}
+            </button>
+            <button
+              type="button"
+              disabled={rotateLoading}
+              onClick={async () => {
+                if (!confirm("Tạo mã mới sẽ làm mã cũ hết hiệu lực. Tiếp tục?")) return;
+                setRotateLoading(true);
+                try {
+                  const updated = await authRotateLinkCode();
+                  const token = getToken() ?? "";
+                  saveAuth(token, updated);
+                  setCurrentUser(updated);
+                } catch {
+                  alert("Không thể tạo mã mới. Vui lòng thử lại.");
+                } finally {
+                  setRotateLoading(false);
+                }
+              }}
+              className="rounded-lg border border-yellow-700 px-3 py-1.5 text-xs text-yellow-300 hover:bg-yellow-900/30 disabled:opacity-50"
+            >
+              {rotateLoading ? "Đang tạo…" : "Tạo mã mới"}
+            </button>
+          </div>
+          <p className="text-xs text-zinc-500">
+            ⚠️ Khi tạo mã mới, mã cũ sẽ hết hiệu lực ngay lập tức. Các liên kết đã xác nhận không bị ảnh hưởng.
+          </p>
+
+          {/* Incoming link requests */}
+          {incomingLinks.length > 0 && (
+            <div className="border-t border-zinc-800 pt-3 space-y-2">
+              <p className="text-sm font-medium text-zinc-300">Yêu cầu liên kết đang chờ</p>
+              {incomingLinks
+                .filter((l) => l.status === "pending")
+                .map((link) => (
+                  <div key={link.id} className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
+                    <div>
+                      <p className="text-xs text-zinc-300">Phụ huynh ID: {link.parent_id}</p>
+                      <p className="text-xs text-zinc-500">{new Date(link.created_at).toLocaleDateString("vi-VN")}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          await studentRespondLink(link.id, "active");
+                          setIncomingLinks((prev) =>
+                            prev.map((l) => l.id === link.id ? { ...l, status: "active" } : l)
+                          );
+                        }}
+                        className="rounded bg-emerald-600/20 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-600/40"
+                      >
+                        Chấp nhận
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await studentRespondLink(link.id, "rejected");
+                          setIncomingLinks((prev) =>
+                            prev.map((l) => l.id === link.id ? { ...l, status: "rejected" } : l)
+                          );
+                        }}
+                        className="rounded bg-red-600/20 px-2 py-1 text-xs text-red-300 hover:bg-red-600/40"
+                      >
+                        Từ chối
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {incomingLinks.filter((l) => l.status !== "pending").map((link) => (
+                <div key={link.id} className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
+                  <p className="text-xs text-zinc-500">Phụ huynh ID: {link.parent_id}</p>
+                  <span className={`text-xs rounded-full px-2 py-0.5 ${link.status === "active" ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"}`}>
+                    {link.status === "active" ? "Đã liên kết" : "Đã từ chối"}
+                  </span>
+                </div>
+              ))}
             </div>
-          );
-        }
-        return null;
-      })()}
+          )}
+        </div>
+      )}
 
       <section className="card">
         <form className="grid gap-5" onSubmit={handleSubmit}>

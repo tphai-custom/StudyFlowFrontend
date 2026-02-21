@@ -50,11 +50,41 @@ export default function ParentChildrenPage() {
     <div className="max-w-2xl space-y-8">
       <h1 className="text-2xl font-bold">Quản lý liên kết con em</h1>
 
+      {/* Step-by-step instructions (C5 requirement) */}
+      <div className="rounded-xl border border-blue-700/40 bg-blue-900/20 p-4 space-y-3">
+        <p className="text-sm font-semibold text-blue-300">Hướng dẫn liên kết tài khoản</p>
+        <ol className="space-y-2 text-sm text-zinc-300 list-none">
+          <li className="flex gap-2">
+            <span className="flex-shrink-0 rounded-full bg-blue-600/30 text-blue-200 text-xs font-bold w-5 h-5 flex items-center justify-center">1</span>
+            <span>
+              Học sinh đăng nhập, vào mảng lớn <strong>Cài đặt</strong> → mục nhỏ <strong>Hồ sơ học tập</strong>.
+              Ở đó sẽ hiển thị <strong>Mã liên kết phụ huynh</strong> (7 ký tự) cùng nút <em>Sao chép</em>.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="flex-shrink-0 rounded-full bg-blue-600/30 text-blue-200 text-xs font-bold w-5 h-5 flex items-center justify-center">2</span>
+            <span>
+              Phụ huynh nhập <strong>Username</strong> của học sinh và <strong>Mã liên kết</strong> vào form bên dưới, rồi bấm <em>Gửi yêu cầu</em>.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="flex-shrink-0 rounded-full bg-blue-600/30 text-blue-200 text-xs font-bold w-5 h-5 flex items-center justify-center">3</span>
+            <span>
+              Học sinh quay lại <strong>Cài đặt → Hồ sơ học tập</strong>, xem mục <em>Yêu cầu liên kết đang chờ</em> và bấm <strong>Chấp nhận</strong>.
+              Sau đó phụ huynh sẽ thấy dữ liệu của học sinh trong mảng lớn <strong>Tổng quan</strong>.
+            </span>
+          </li>
+        </ol>
+        <p className="text-xs text-zinc-500 pt-1">
+          Lưu ý: học sinh có thể tạo mã mới bất cứ lúc nào — mã cũ sẽ hết hiệu lực ngay lập tức nhưng các liên kết đã xác nhận không bị ảnh hưởng.
+        </p>
+      </div>
+
       {/* Request new link */}
       <div className="card space-y-4">
         <h2 className="font-semibold">Thêm con em mới</h2>
         <p className="text-xs text-zinc-400">
-          Nhập username và mã liên kết của học sinh (học sinh xem mã tại mục Cài đặt hồ sơ).
+          Nhập username và mã liên kết của học sinh (học sinh xem mã tại <strong>Cài đặt → Hồ sơ học tập</strong>).
         </p>
         <form onSubmit={handleLink} className="space-y-3">
           <div className="grid gap-1">

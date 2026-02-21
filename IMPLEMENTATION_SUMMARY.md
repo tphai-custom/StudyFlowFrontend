@@ -1,7 +1,281 @@
-# StudyFlow MVP - Implementation Summary
+# StudyFlow — Tóm tắt triển khai hệ thống đăng nhập/phân quyền
 
-## Overview
-This document summarizes the comprehensive UX improvements implemented for the StudyFlow MVP prototype.
+> Cập nhật: 2026-02-21
+
+---
+
+## Tổng quan kiến trúc
+
+| Phần | Công nghệ | Entry point |
+|------|-----------|-------------|
+| Frontend | Next.js 14 (App Router) | `StudyFlowFrontend/app/layout.tsx` |
+| Backend | FastAPI (Python 3.11) | `StudyFlowBackend/main.py` |
+| Database | PostgreSQL + SQLAlchemy async + Alembic | `StudyFlowBackend/app/database.py` |
+
+---
+
+## A. Thiết kế Role
+
+### Roles
+| Role | Mô tả | Đăng ký qua UI |
+|------|-------|----------------|
+| `student` | Sinh viên — toàn quyền với dữ liệu cá nhân | ✅ |
+| `parent` | Phụ huynh — xem dữ liệu con đã liên kết (read-only) | ✅ |
+| `admin` | Quản trị viên — quản lý user, thư viện hệ thống | ❌ Chỉ seed bằng script |
+
+### Backend Role Guard (`app/core/deps.py`)
+```python
+def require_role(*roles: str) -> Callable:
+    # Trả về FastAPI dependency kiểm tra role trong JWT token
+```
+
+---
+
+## B. Database Schema
+
+### Bảng `users`
+| Cột | Kiểu | Mô tả |
+|-----|------|-------|
+| `id` | String (UUID) | PK |
+| `username` | String(64), unique | lowercase, no spaces |
+| `hashed_password` | String | bcrypt |
+| `role` | String(16) | student / parent / admin |
+| `last_name`, `first_name` | String(64) | |
+| `date_of_birth` | Date | optional |
+| `address`, `bio` | String | optional |
+| `hobbies` | JSONB | list[str] |
+| `link_code` | String(8), unique | 7-char code cho student |
+| `is_active` | Boolean | khi admin khoá tài khoản |
+| `created_at`, `updated_at` | DateTime(tz) | tự động |
+
+### Bảng `parent_student_links`
+| Cột | Kiểu | Mô tả |
+|-----|------|-------|
+| `id` | String | PK |
+| `parent_id` | String | FK → users.id |
+| `student_id` | String | FK → users.id |
+| `status` | String(16) | pending / active / rejected |
+| `created_at` | DateTime(tz) | |
+
+### Bảng `parent_suggestions`
+| Cột | Kiểu | Mô tả |
+|-----|------|-------|
+| `id` | String | PK |
+| `parent_id`, `student_id` | String | FK → users.id |
+| `type` | String(32) | loại gợi ý |
+| `payload` | JSONB | chi tiết gợi ý |
+| `message` | String(512) | |
+| `status` | String(16) | pending / accepted / rejected |
+
+### Tách dữ liệu theo user (`owner_user_id`)
+Cột `owner_user_id` được thêm vào tất cả bảng dữ liệu:
+- `tasks`
+- `free_slots`
+- `habits`
+- `plan_records`
+- `feedback`
+- `import_drafts`
+
+Mọi query đều lọc theo `owner_user_id` lấy từ JWT token — **không nhận user_id từ client**.
+
+---
+
+## C. Migration (Alembic)
+
+Chuỗi migration:
+1. `adaeee9ae341` — Tạo bảng gốc (tasks, free_slots, habits, plan_records, …)
+2. `b1c2d3e4f5a6` — Thêm import_drafts
+3. `c1d2e3f4a5b6` — Tạo users, owner_user_id, parent_student_links, parent_suggestions
+4. `d2e3f4a5b6c7` — Idempotent fix: đảm bảo link_code + owner_user_id tồn tại
+
+```bash
+cd StudyFlowBackend
+alembic upgrade head
+```
+
+---
+
+## D. API Endpoints
+
+### Auth (`/api/v1/auth`)
+| Method | Path | Requires | Mô tả |
+|--------|------|----------|-------|
+| POST | `/register` | — | Đăng ký (student/parent only) |
+| POST | `/login` | — | Đăng nhập → JWT token |
+| GET | `/me` | token | Thông tin user hiện tại |
+| PUT | `/me` | token | Cập nhật profile |
+| POST | `/rotate-link-code` | student | Tạo mã liên kết mới |
+
+### Parent (`/api/v1/parent`)
+| Method | Path | Role | Mô tả |
+|--------|------|------|-------|
+| POST | `/link` | parent | Gửi yêu cầu liên kết (username + link_code) |
+| GET | `/links` | parent | Tất cả liên kết của phụ huynh |
+| GET | `/children` | parent | Con đã active |
+| GET | `/incoming-links` | student | Yêu cầu đang chờ xác nhận |
+| PATCH | `/links/{id}` | student | Chấp nhận/từ chối |
+| GET | `/child/{id}/tasks` | parent | Nhiệm vụ của con (only if active link) |
+| GET | `/child/{id}/plan` | parent | Kế hoạch của con |
+| GET | `/child/{id}/habits` | parent | Thói quen của con |
+| POST | `/child/{id}/suggestions` | parent | Gửi gợi ý |
+| GET | `/my-suggestions` | student | Gợi ý nhận được |
+| PATCH | `/suggestions/{id}` | student | Trả lời gợi ý |
+
+### Admin (`/api/v1/admin`)
+| Method | Path | Role | Mô tả |
+|--------|------|------|-------|
+| GET | `/users` | admin | Danh sách tất cả user |
+| GET | `/users/{id}` | admin | Chi tiết user |
+| PATCH | `/users/{id}` | admin | Khoá/mở tài khoản |
+| POST | `/users/{id}/reset-password` | admin | Đổi mật khẩu |
+| GET | `/library/system` | admin | Thư viện hệ thống |
+| POST | `/library` | admin | Thêm tài liệu hệ thống |
+| DELETE | `/library/{id}` | admin | Xoá tài liệu |
+
+---
+
+## E. Frontend — Thay đổi UI theo Role
+
+### Cấu trúc route guard (`src/components/ClientShell.tsx`)
+- Chưa đăng nhập → redirect `/login`
+- Role home: student → `/dashboard`, parent → `/parent`, admin → `/admin`
+- Admin chỉ vào `/admin/*`
+- Parent chỉ vào `/parent/*`
+- Student-only routes: `/dashboard`, `/tasks`, `/free-time`, `/plan`, `/today`, `/habits`, `/stats`, `/templates`, `/programs`, `/imports`, `/library`, `/calendar`, `/demo`
+
+### Menu theo role (`src/lib/constants/nav.ts`)
+
+**STUDENT_NAV** — đầy đủ: Hướng dẫn, Tổng quan, Nhiệm vụ, Thời gian rảnh, Kế hoạch (Năm/Tháng/Tuần/Ngày/Lịch lớn), Hôm nay, Thói quen, Thống kê, Kế hoạch mẫu, Chương trình học, Import, Thư viện, Cài đặt (+Hồ sơ học tập), Phản hồi, Demo/Seed
+
+**PARENT_NAV** — Tổng quan, **Liên kết con em**, Gợi ý đã gửi, Cài đặt (+Hồ sơ)
+
+**ADMIN_NAV** — **Admin Dashboard**, Quản lý người dùng, Thư viện hệ thống, Cài đặt (+Hồ sơ)
+
+### Sidebar (`src/components/ClientShell.tsx` + `SidebarNav.tsx`)
+- Hiển thị: Họ tên, @username, role badge (Sinh viên / Phụ huynh / Quản trị viên)
+- Nút Đăng xuất luôn hiển thị khi đăng nhập
+
+---
+
+## F. Trang quan trọng
+
+### `/register`
+- Radio: Sinh viên / Phụ huynh (Admin không hiển thị)
+- Ghi chú: "Tài khoản quản trị do hệ thống cấp"
+- Fields: họ, tên, username, mật khẩu, xác nhận, ngày sinh, địa chỉ, bio, sở thích
+- Sau register: auto-login → redirect theo role
+
+### `/login`
+- username + password
+- Redirect theo role sau login
+
+### `/settings/profile` (Student)
+- **Mã liên kết phụ huynh**: hiển thị code 7 ký tự + nút **Sao chép** + nút **Tạo mã mới**
+- Cảnh báo khi rotate: mã cũ hết hiệu lực ngay (confirm dialog)
+- **Yêu cầu liên kết đang chờ**: danh sách + nút Chấp nhận/Từ chối ngay trong trang
+- Hồ sơ học tập: lớp, mục tiêu, môn yếu/mạnh, tốc độ, năng lượng, preset nghỉ, timezone
+
+### `/parent/children` (Phụ huynh — Liên kết con em)
+- **Hộp hướng dẫn 3 bước** ở đầu trang:
+  1. Học sinh vào `Cài đặt → Hồ sơ học tập` lấy mã liên kết
+  2. Phụ huynh nhập username + mã, gửi yêu cầu
+  3. Học sinh chấp nhận → phụ huynh thấy dữ liệu
+- Form liên kết + danh sách trạng thái
+
+### `/parent` (Dashboard Phụ huynh)
+- Xem danh sách con đã liên kết + truy cập nhanh Nhiệm vụ / Kế hoạch theo con
+
+### `/admin` (Admin Dashboard)
+- Stats cards: tổng user, sinh viên, phụ huynh, đang hoạt động
+- Quick links: Quản lý người dùng, Thư viện hệ thống
+- Bảng 5 người dùng mới nhất với role badges
+
+---
+
+## G. Seeding Admin
+
+Admin **không thể đăng ký qua UI hoặc API** (backend block `role=admin` tại `/register`).
+
+Tạo admin bằng script:
+```bash
+cd StudyFlowBackend
+.\.venv\Scripts\activate.bat
+python scripts/seed_admin.py
+# Username: admin | Password: Nopass1!
+```
+
+---
+
+## H. Chạy ứng dụng
+
+### Backend
+```bash
+cd StudyFlowBackend
+.\.venv\Scripts\activate.bat
+alembic upgrade head              # chạy migrations
+python scripts/seed_admin.py      # tạo tài khoản admin
+uvicorn main:app --reload
+# http://localhost:8000/docs
+```
+
+### Frontend
+```bash
+cd StudyFlowFrontend
+npm install
+# tạo .env.local với: NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+npm run dev
+# http://localhost:3000
+```
+
+---
+
+## I. Tự kiểm tra (Self-Check)
+
+| # | Checklist | Trạng thái | Ghi chú |
+|---|-----------|-----------|---------|
+| 1 | Admin không thể register bằng UI/API | ✅ PASS | Backend: `if payload.role == "admin": raise 403`. UI: không có option Admin trong radio |
+| 2 | Dữ liệu tasks/plans/slots tách theo user | ✅ PASS | Mọi CRUD lọc `owner_user_id` từ JWT. `/reset` cũng xoá theo `owner_user_id` |
+| 3 | Parent chỉ xem student đã APPROVED | ✅ PASS | `_require_active_link()` check `status="active"` trước mọi GET child data endpoint |
+| 4 | Student thấy "Mã liên kết phụ huynh" + copy + rotate | ✅ PASS | `settings/profile`: code hiển thị + nút Sao chép + Tạo mã mới (confirm → POST `/auth/rotate-link-code` → update localStorage) |
+| 5 | Parent page có hướng dẫn liên kết rõ ràng | ✅ PASS | Hộp 3 bước ở đầu `/parent/children` với mô tả chi tiết đường dẫn mảng lớn/mục nhỏ |
+| 6 | Route guards hoạt động | ✅ PASS | `ClientShell.tsx`: redirect theo role; Backend: `require_role()` dependency |
+| 7 | Demo/Seed chỉ seed cho user hiện tại | ✅ PASS | `seedDemoData()` gọi API với Bearer token → backend gán `owner_user_id` từ JWT |
+
+---
+
+## J. Files chính đã thay đổi / tạo mới
+
+### Backend (`StudyFlowBackend/`)
+| File | Loại thay đổi |
+|------|---------|
+| `app/routers/auth.py` | **Sửa**: Thêm `POST /rotate-link-code`; import `require_role` |
+| `app/crud/user.py` | **Sửa**: Thêm `rotate_link_code()` |
+| `app/models/user.py` | Đã có: `link_code` field, roles |
+| `app/models/parent.py` | Đã có: `ParentStudentLink`, `ParentSuggestion` |
+| `app/routers/parent.py` | Đã có: đầy đủ CRUD liên kết + xem dữ liệu con |
+| `app/routers/admin.py` | Đã có: user management + library |
+| `app/crud/parent.py` | Đã có: `list_suggestions_by_parent`, `update_suggestion_status` |
+| `alembic/versions/c1d2e3f4a5b6_rbac_owner_user_id.py` | Đã có: Migration users + parent tables |
+| `alembic/versions/d2e3f4a5b6c7_add_link_code_unique.py` | Đã có: Idempotent fix |
+| `scripts/seed_admin.py` | Đã có: Script tạo admin |
+
+### Frontend (`StudyFlowFrontend/`)
+| File | Loại thay đổi |
+|------|---------|
+| `src/lib/api/auth.ts` | **Sửa**: Thêm `authRotateLinkCode()`, `authUpdateMe()` |
+| `src/lib/constants/nav.ts` | **Sửa**: PARENT_NAV → "Liên kết con em"; ADMIN_NAV → "Admin Dashboard" |
+| `src/components/ClientShell.tsx` | **Sửa**: admin home → `/admin` (thay vì `/admin/users`) |
+| `app/settings/profile/page.tsx` | **Sửa**: Link code: Copy + Rotate + Incoming link requests panel |
+| `app/parent/children/page.tsx` | **Sửa**: Thêm hộp hướng dẫn 3 bước |
+| `app/admin/page.tsx` | **Thay thế**: Admin Dashboard với stats (thay thế redirect cũ) |
+| `src/lib/auth.ts` | Đã có: `AuthUser`, `UserRole`, helpers |
+| `src/lib/api/parent.ts` | Đã có: đầy đủ API parent/student |
+| `src/lib/api/admin.ts` | Đã có: Admin API |
+| `src/components/SidebarNav.tsx` | Đã có: Nav theo role |
+| `app/login/page.tsx` | Đã có: Trang đăng nhập |
+| `app/register/page.tsx` | Đã có: Trang đăng ký student/parent |
+| `app/parent/page.tsx` | Đã có: Dashboard phụ huynh |
+
 
 ## What Was Implemented
 

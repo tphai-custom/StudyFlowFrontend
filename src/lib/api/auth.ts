@@ -22,3 +22,9 @@ export const authRegister = (body: RegisterPayload) =>
   apiFetch<TokenResponse>("/auth/register", { method: "POST", body: JSON.stringify(body) });
 
 export const authGetMe = () => apiFetch<AuthUser>("/auth/me");
+
+export const authUpdateMe = (body: Partial<Omit<RegisterPayload, "username" | "password" | "role">>) =>
+  apiFetch<AuthUser>("/auth/me", { method: "PUT", body: JSON.stringify(body) });
+
+export const authRotateLinkCode = () =>
+  apiFetch<AuthUser>("/auth/rotate-link-code", { method: "POST" });

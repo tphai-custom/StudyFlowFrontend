@@ -19,7 +19,7 @@ const STUDENT_ONLY_PREFIXES = [
 
 function getRoleHome(role: string): string {
   if (role === "parent") return "/parent";
-  if (role === "admin") return "/admin/users";
+  if (role === "admin") return "/admin";
   return "/dashboard";
 }
 

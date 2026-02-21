@@ -57,7 +57,7 @@ export const STUDENT_NAV: NavSection[] = [
 
 export const PARENT_NAV: NavSection[] = [
   { href: "/parent", label: "Tổng quan" },
-  { href: "/parent/children", label: "Danh sách con em" },
+  { href: "/parent/children", label: "Liên kết con em" },
   { href: "/parent/suggestions", label: "Gợi ý đã gửi" },
   {
     href: "/settings",
@@ -67,7 +67,7 @@ export const PARENT_NAV: NavSection[] = [
 ];
 
 export const ADMIN_NAV: NavSection[] = [
-  { href: "/admin", label: "Tổng quan" },
+  { href: "/admin", label: "Admin Dashboard" },
   { href: "/admin/users", label: "Quản lý người dùng" },
   { href: "/admin/library", label: "Thư viện hệ thống" },
   {
