@@ -4,21 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { taskSchema, TaskFormValues } from "@/src/lib/validation/taskSchema";
 import { listTasks, saveTask, deleteTask } from "@/src/lib/storage/tasksRepo";
 import { Task } from "@/src/lib/types";
-import { apiGet } from "@/src/lib/api/client";
-
-type BreakdownSubtask = {
-  title: string;
-  minutesEstimate: number;
-  successCriteria: string;
-};
-
-type BreakdownResult = {
-  taskId: string;
-  subject: string;
-  totalMinutes: number;
-  subtasks: BreakdownSubtask[];
-  suggestedSuccessCriteria: string[];
-};
+import ConfirmDialog from "@/src/components/ConfirmDialog";
 
 const defaultForm: TaskFormValues = {
   subject: "",
@@ -61,9 +47,7 @@ export default function TasksPage() {
   const [formValues, setFormValues] = useState<TaskFormValues>(defaultForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<string>("");
-  const [breakdownTaskId, setBreakdownTaskId] = useState<string | null>(null);
-  const [breakdownResult, setBreakdownResult] = useState<BreakdownResult | null>(null);
-  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => setTasks(await listTasks()))();
@@ -183,48 +167,7 @@ export default function TasksPage() {
     }));
   };
 
-  const handleSuggestBreakdown = async (taskId: string) => {
-    setBreakdownTaskId(taskId);
-    setBreakdownResult(null);
-    setBreakdownLoading(true);
-    try {
-      const result = await apiGet<BreakdownResult>(`/tasks/${taskId}/suggest-breakdown`);
-      setBreakdownResult(result);
-    } catch {
-      setBreakdownResult(null);
-    } finally {
-      setBreakdownLoading(false);
-    }
-  };
 
-  const applyBreakdown = async (taskId: string) => {
-    if (!breakdownResult) return;
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    const payload: TaskFormValues & { id: string } = {
-      id: task.id,
-      subject: task.subject,
-      title: task.title,
-      deadline: task.deadline,
-      difficulty: task.difficulty,
-      durationEstimateMin: task.durationEstimateMin ?? task.estimatedMinutes ?? 60,
-      durationEstimateMax: task.durationEstimateMax ?? task.estimatedMinutes ?? 60,
-      durationUnit: (task.durationUnit as TaskFormValues["durationUnit"]) ?? "minutes",
-      importance: task.importance,
-      contentFocus: task.contentFocus ?? "",
-      successCriteria: breakdownResult.suggestedSuccessCriteria.length
-        ? breakdownResult.suggestedSuccessCriteria
-        : task.successCriteria ?? ["Hoàn thành mục tiêu chính"],
-      milestones: breakdownResult.subtasks.map((s) => ({
-        title: s.title,
-        minutesEstimate: s.minutesEstimate,
-      })),
-    };
-    await saveTask(payload);
-    setBreakdownTaskId(null);
-    setBreakdownResult(null);
-    refresh();
-  };
 
   return (
     <div className="space-y-6">
@@ -514,66 +457,28 @@ export default function TasksPage() {
                   <div className="flex flex-col items-end gap-2">
                     <button
                       className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
-                      onClick={() => {
-                        deleteTask(task.id).then(refresh);
-                      }}
+                      onClick={() => setPendingDeleteId(task.id)}
                     >
                       Xoá
                     </button>
-                    <button
-                      className="rounded-lg border border-sky-500/50 px-3 py-1 text-sm text-sky-300 hover:bg-sky-500/10"
-                      onClick={() =>
-                        breakdownTaskId === task.id
-                          ? setBreakdownTaskId(null)
-                          : handleSuggestBreakdown(task.id)
-                      }
-                    >
-                      {breakdownTaskId === task.id ? "Đóng" : "🧩 Chia nhỏ"}
-                    </button>
                   </div>
                 </div>
-                {/* Breakdown Panel */}
-                {breakdownTaskId === task.id && (
-                  <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 p-3 space-y-3">
-                    <p className="text-xs font-semibold text-sky-300">Gợi ý chia nhỏ nhiệm vụ</p>
-                    {breakdownLoading && (
-                      <p className="text-xs text-zinc-500">Đang tạo gợi ý...</p>
-                    )}
-                    {!breakdownLoading && breakdownResult && (
-                      <>
-                        <div className="space-y-2">
-                          {breakdownResult.subtasks.map((sub, i) => (
-                            <div key={i} className="rounded-lg border border-zinc-700/60 bg-zinc-900/40 p-2 space-y-1">
-                              <p className="text-sm font-medium">{sub.title}</p>
-                              <p className="text-xs text-zinc-400">{sub.minutesEstimate} phút · {sub.successCriteria}</p>
-                            </div>
-                          ))}
-                        </div>
-                        {breakdownResult.suggestedSuccessCriteria.length > 0 && (
-                          <div>
-                            <p className="text-xs text-zinc-500 mb-1">Tiêu chí thành công gợi ý:</p>
-                            <ul className="list-disc pl-4 space-y-0.5">
-                              {breakdownResult.suggestedSuccessCriteria.map((c, i) => (
-                                <li key={i} className="text-xs text-emerald-300">{c}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        <button
-                          className="rounded-lg bg-sky-500 px-4 py-1.5 text-sm font-semibold text-black"
-                          onClick={() => applyBreakdown(task.id)}
-                        >
-                          Áp dụng milestones & tiêu chí
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
+
               </li>
             ))}
           </ul>
         )}
       </section>
+      {pendingDeleteId && (
+        <ConfirmDialog
+          message="Bạn có chắc muốn xóa nhiệm vụ này?"
+          onConfirm={() => {
+            deleteTask(pendingDeleteId).then(refresh);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

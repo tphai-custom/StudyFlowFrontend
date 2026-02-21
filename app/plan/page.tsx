@@ -50,6 +50,7 @@ export default function PlanPage() {
   const [metricsRange, setMetricsRange] = useState<"day" | "week" | "month">("week");
   const [metrics, setMetrics] = useState<PlanMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [viewOffset, setViewOffset] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -126,11 +127,45 @@ export default function PlanPage() {
   };
 
   const handleViewSwitch = (nextView: ViewKey) => {
+    if (nextView === "timeline") {
+      router.push("/calendar");
+      return;
+    }
     setView(nextView);
+    setViewOffset(0);
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.set("view", nextView);
     const query = params.toString();
     router.replace(query ? `?${query}` : "?", { scroll: false });
+  };
+
+  const getViewLabel = (): string => {
+    const now = new Date();
+    if (view === "year") {
+      return String(now.getFullYear() + viewOffset);
+    }
+    if (view === "month") {
+      const d = new Date(now.getFullYear(), now.getMonth() + viewOffset, 1);
+      return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+    }
+    if (view === "week") {
+      const base = new Date(now);
+      base.setDate(base.getDate() + viewOffset * 7);
+      const dow = base.getDay();
+      const diffToMon = dow === 0 ? -6 : 1 - dow;
+      const mon = new Date(base);
+      mon.setDate(base.getDate() + diffToMon);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      const fmt = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`;
+      return `${fmt(mon)} – ${fmt(sun)}/${sun.getFullYear()}`;
+    }
+    if (view === "day") {
+      const d = new Date(now);
+      d.setDate(d.getDate() + viewOffset);
+      return d.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric", month: "numeric", year: "numeric" });
+    }
+    return "";
   };
 
   const renderView = () => {
@@ -141,11 +176,14 @@ export default function PlanPage() {
     const focusSessions = plan.sessions.filter((session) => session.source !== "break");
 
     if (view === "year") {
-      const months = focusSessions.reduce<Record<string, number>>((acc, session) => {
-        const key = getMonthKeyFromISO(session.plannedStart, timezone);
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {});
+      const targetYear = new Date().getFullYear() + viewOffset;
+      const months = focusSessions
+        .filter((s) => getDayKeyFromISO(s.plannedStart, timezone).startsWith(`${targetYear}-`))
+        .reduce<Record<string, number>>((acc, session) => {
+          const key = getMonthKeyFromISO(session.plannedStart, timezone);
+          acc[key] = (acc[key] ?? 0) + 1;
+          return acc;
+        }, {});
       return (
         <div className="grid-auto">
           {Object.entries(months).map(([month, count]) => (
@@ -165,12 +203,27 @@ export default function PlanPage() {
     }
 
     if (view === "month" || view === "week") {
-      const todayKey = getDayKeyFromDate(new Date(), timezone);
       const allEntries = Object.entries(groupedSessions).sort((a, b) => a[0].localeCompare(b[0]));
-      const displayEntries =
-        view === "week"
-          ? allEntries.filter(([day]) => day >= todayKey).slice(0, 7)
-          : allEntries.slice(0, 30);
+      let displayEntries: [string, Session[]][];
+      if (view === "week") {
+        const base = new Date();
+        base.setDate(base.getDate() + viewOffset * 7);
+        const dow = base.getDay();
+        const diffToMon = dow === 0 ? -6 : 1 - dow;
+        const mon = new Date(base);
+        mon.setDate(base.getDate() + diffToMon);
+        const weekDayKeys = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(mon);
+          d.setDate(mon.getDate() + i);
+          return getDayKeyFromDate(d, timezone);
+        });
+        displayEntries = allEntries.filter(([day]) => weekDayKeys.includes(day));
+      } else {
+        const td = new Date();
+        td.setMonth(td.getMonth() + viewOffset);
+        const targetMonth = `${td.getFullYear()}-${String(td.getMonth() + 1).padStart(2, "0")}`;
+        displayEntries = allEntries.filter(([day]) => day.startsWith(targetMonth));
+      }
       return (
         <div className="space-y-3">
           {displayEntries.length === 0 && (
@@ -219,7 +272,9 @@ export default function PlanPage() {
     }
 
     if (view === "day") {
-      const todayKey = getDayKeyFromDate(new Date(), timezone);
+      const targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + viewOffset);
+      const todayKey = getDayKeyFromDate(targetDate, timezone);
       const todaySessions = groupedSessions[todayKey] ?? [];
       return todaySessions.length === 0 ? (
         <p className="text-sm text-zinc-400">Hôm nay không có session nào.</p>
@@ -316,7 +371,7 @@ export default function PlanPage() {
         </div>
       </header>
       <section className="card space-y-3">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {views.map((tab) => (
             <button
               key={tab.key}
@@ -329,6 +384,33 @@ export default function PlanPage() {
             </button>
           ))}
         </div>
+        {view !== "timeline" && (
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-lg border border-zinc-700 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800"
+              onClick={() => setViewOffset((o) => o - 1)}
+            >
+              ‹
+            </button>
+            <span className="min-w-[160px] text-center text-sm font-medium text-zinc-200">
+              {getViewLabel()}
+            </span>
+            <button
+              className="rounded-lg border border-zinc-700 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800"
+              onClick={() => setViewOffset((o) => o + 1)}
+            >
+              ›
+            </button>
+            {viewOffset !== 0 && (
+              <button
+                className="text-xs text-emerald-400 hover:underline"
+                onClick={() => setViewOffset(0)}
+              >
+                Hôm nay
+              </button>
+            )}
+          </div>
+        )}
         <div className="text-xs">
           <p className="text-zinc-500">
             Chọn tab để xem kế hoạch theo Năm/Tháng/Tuần/Ngày. Bấm vào các mục để xem theo cấp (tổng quan → chi tiết).

@@ -4,11 +4,13 @@ import { FormEvent, useEffect, useState } from "react";
 import { listHabits, saveHabit, deleteHabit } from "@/src/lib/storage/habitsRepo";
 import { rebuildPlan } from "@/src/lib/planner/planService";
 import { Habit } from "@/src/lib/types";
+import ConfirmDialog from "@/src/components/ConfirmDialog";
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [form, setForm] = useState({ name: "", cadence: "daily", minutes: 15, weekday: 1 });
   const [status, setStatus] = useState<string>("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const refresh = async () => setHabits(await listHabits());
 
@@ -101,12 +103,7 @@ export default function HabitsPage() {
                 </div>
                 <button
                   className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
-                  onClick={async () => {
-                    await deleteHabit(habit.id);
-                    await refresh();
-                    await rebuildPlan();
-                    setStatus("Đã xóa habit và cập nhật kế hoạch.");
-                  }}
+                  onClick={() => setPendingDeleteId(habit.id)}
                 >
                   Xoá
                 </button>
@@ -115,6 +112,19 @@ export default function HabitsPage() {
           </ul>
         )}
       </section>
+      {pendingDeleteId && (
+        <ConfirmDialog
+          message="Bạn có chắc muốn xóa habit này?"
+          onConfirm={async () => {
+            await deleteHabit(pendingDeleteId);
+            await refresh();
+            await rebuildPlan();
+            setStatus("Đã xóa habit và cập nhật kế hoạch.");
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

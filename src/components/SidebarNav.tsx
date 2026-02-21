@@ -2,17 +2,27 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { NAV_SECTIONS } from "@/src/lib/constants/nav";
+import { getUser } from "@/src/lib/auth";
+import { STUDENT_NAV, PARENT_NAV, ADMIN_NAV, NavSection } from "@/src/lib/constants/nav";
+
+function getNavSections(): NavSection[] {
+  const user = getUser();
+  if (!user) return STUDENT_NAV;
+  if (user.role === "parent") return PARENT_NAV;
+  if (user.role === "admin") return ADMIN_NAV;
+  return STUDENT_NAV;
+}
 
 export function SidebarNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const activePlanView = pathname === "/plan" ? searchParams?.get("view") ?? "week" : undefined;
+  const sections = getNavSections();
 
   return (
     <nav className="flex flex-col gap-4 text-sm">
-      {NAV_SECTIONS.map((section) => {
+      {sections.map((section) => {
         const isActive = section.href ? pathname?.startsWith(section.href) : false;
         return (
           <div key={section.label} className="space-y-1">

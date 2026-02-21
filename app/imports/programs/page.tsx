@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listDrafts, deleteDraft, ImportDraft } from "@/src/lib/storage/draftsRepo";
+import ConfirmDialog from "@/src/components/ConfirmDialog";
 
 export default function DraftProgramsPage() {
   const [drafts, setDrafts] = useState<ImportDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const refresh = async () => {
     setLoading(true);
@@ -24,6 +26,7 @@ export default function DraftProgramsPage() {
     await deleteDraft(id);
     setStatus("Đã xóa draft.");
     refresh();
+    setPendingDeleteId(null);
   };
 
   return (
@@ -73,7 +76,7 @@ export default function DraftProgramsPage() {
                 )}
                 <button
                   className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
-                  onClick={() => handleDelete(draft.id)}
+                  onClick={() => setPendingDeleteId(draft.id)}
                 >
                   Xóa
                 </button>
@@ -81,6 +84,13 @@ export default function DraftProgramsPage() {
             </div>
           ))}
         </div>
+      )}
+      {pendingDeleteId && (
+        <ConfirmDialog
+          message="Bạn có chắc muốn xóa draft này?"
+          onConfirm={() => handleDelete(pendingDeleteId)}
+          onCancel={() => setPendingDeleteId(null)}
+        />
       )}
     </div>
   );

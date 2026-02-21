@@ -9,7 +9,7 @@ export type NavSection = {
   children?: NavChild[];
 };
 
-export const NAV_SECTIONS: NavSection[] = [
+export const STUDENT_NAV: NavSection[] = [
   {
     label: "Giới thiệu & Hướng dẫn",
     children: [
@@ -54,3 +54,28 @@ export const NAV_SECTIONS: NavSection[] = [
   { href: "/feedback", label: "Phản hồi" },
   { href: "/demo", label: "Demo/Seed" },
 ];
+
+export const PARENT_NAV: NavSection[] = [
+  { href: "/parent", label: "Tổng quan" },
+  { href: "/parent/children", label: "Danh sách con em" },
+  { href: "/parent/suggestions", label: "Gợi ý đã gửi" },
+  {
+    href: "/settings",
+    label: "Cài đặt",
+    children: [{ href: "/settings/profile", label: "Hồ sơ" }],
+  },
+];
+
+export const ADMIN_NAV: NavSection[] = [
+  { href: "/admin", label: "Tổng quan" },
+  { href: "/admin/users", label: "Quản lý người dùng" },
+  { href: "/admin/library", label: "Thư viện hệ thống" },
+  {
+    href: "/settings",
+    label: "Cài đặt",
+    children: [{ href: "/settings/profile", label: "Hồ sơ" }],
+  },
+];
+
+/** @deprecated Use STUDENT_NAV directly. Kept for backward compatibility. */
+export const NAV_SECTIONS: NavSection[] = STUDENT_NAV;

@@ -1,6 +1,8 @@
+import { getToken } from "@/src/lib/auth";
+
 const BASE_URL =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) ||
-  "http://localhost:8000/api/v1";
+  "http://127.0.0.1:8000/api/v1";
 
 export class ApiError extends Error {
   constructor(
@@ -13,12 +15,19 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  // Merge caller-provided headers (may override Content-Type)
+  if (options?.headers) {
+    const extra = options.headers as Record<string, string>;
+    for (const [k, v] of Object.entries(extra)) headers[k] = v;
+  }
   const response = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
   if (!response.ok) {
     const text = await response.text().catch(() => "Unknown error");

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getUserProfile, saveUserProfile } from "@/src/lib/storage/profileRepo";
 import { EnergyLevel, UserProfile } from "@/src/lib/types";
+import { getUser } from "@/src/lib/auth";
 
 const BREAK_PRESETS = [
   { value: "Pomodoro 25/5", label: "Pomodoro 25/5 (học 25p – nghỉ 5p)" },
@@ -183,6 +184,28 @@ export default function UserProfilePage() {
         </p>
         {status && <p className="text-xs text-emerald-400 mt-1">{status}</p>}
       </header>
+
+      {/* Student link code display */}
+      {(() => {
+        const u = getUser();
+        if (u?.role === "student" && u?.link_code) {
+          return (
+            <div className="card flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-zinc-200">Mã liên kết phụ huynh</p>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Chia sẻ mã này với phụ huynh để họ có thể liên kết tài khoản.
+                </p>
+              </div>
+              <span className="rounded-xl bg-emerald-500/15 px-4 py-2 font-mono text-lg font-bold tracking-widest text-emerald-300">
+                {u.link_code}
+              </span>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       <section className="card">
         <form className="grid gap-5" onSubmit={handleSubmit}>
 

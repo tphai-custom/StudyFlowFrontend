@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { listSlots, saveSlot, deleteSlot } from "@/src/lib/storage/slotsRepo";
 import { FreeSlot } from "@/src/lib/types";
 import { cleanSlots } from "@/src/lib/planner/cleanSlots";
+import ConfirmDialog from "@/src/components/ConfirmDialog";
 
 const weekdayOptions = [
   { value: 1, label: "Thứ 2" },
@@ -21,6 +22,7 @@ export default function FreeTimePage() {
   const [slots, setSlots] = useState<FreeSlot[]>([]);
   const [form, setForm] = useState({ weekday: 1, startTime: "19:00", endTime: "20:30" });
   const [error, setError] = useState<string>("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [slotHistory, setSlotHistory] = useState<FreeSlot[][]>([]);
   const [cleaningReport, setCleaningReport] = useState<string[]>([]);
 
@@ -141,7 +143,7 @@ export default function FreeTimePage() {
                 </div>
                 <button
                   className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
-                  onClick={() => deleteSlot(slot.id).then(refresh)}
+                  onClick={() => setPendingDeleteId(slot.id)}
                 >
                   Xoá
                 </button>
@@ -177,6 +179,16 @@ export default function FreeTimePage() {
           </div>
         )}
       </section>
+      {pendingDeleteId && (
+        <ConfirmDialog
+          message="Bạn có chắc muốn xóa slot này?"
+          onConfirm={() => {
+            deleteSlot(pendingDeleteId).then(refresh);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }

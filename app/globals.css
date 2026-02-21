@@ -30,6 +30,10 @@ body {
   min-height: 100vh;
 }
 
+button {
+  cursor: pointer;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
