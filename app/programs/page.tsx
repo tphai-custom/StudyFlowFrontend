@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { addDays } from "date-fns";
+import { useRouter } from "next/navigation";
 import { programs } from "@/src/lib/seed/demoData";
 import { saveTask } from "@/src/lib/storage/tasksRepo";
+import { createDraft } from "@/src/lib/storage/draftsRepo";
 import { TaskFormValues } from "@/src/lib/validation/taskSchema";
 
 const CATEGORIES = [
@@ -15,9 +17,35 @@ const CATEGORIES = [
 ];
 
 export default function ProgramsPage() {
+  const router = useRouter();
   const [status, setStatus] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+
+  const importAndEditProgram = async (programId: string) => {
+    const program = programs.find((item) => item.id === programId);
+    if (!program) return;
+    const items = program.milestones.flatMap((milestone, mi) =>
+      milestone.suggestedTasks.map((task, ti) => ({
+        id: crypto.randomUUID(),
+        title: `${milestone.title} · ${task.title}`,
+        durationMin: task.estimatedMinutes,
+        difficulty: task.difficulty,
+        subject: task.subject,
+        successCriteria: milestone.successCriteria,
+        orderIndex: mi * 100 + ti,
+        notes: "",
+      }))
+    );
+    const draft = await createDraft({
+      draftType: "program",
+      sourceId: programId,
+      name: program.name,
+      description: program.target,
+      items,
+    });
+    router.push(`/imports/editor/${draft.id}`);
+  };
 
   const importProgram = async (programId: string) => {
     const program = programs.find((item) => item.id === programId);
@@ -113,12 +141,20 @@ export default function ProgramsPage() {
                   <p className="text-xs text-zinc-500 uppercase">{program.target}</p>
                   <h2 className="text-xl font-semibold">{program.name}</h2>
                 </div>
-                <button
-                  className="rounded-xl border border-emerald-400 px-4 py-2 text-sm text-emerald-200"
-                  onClick={() => importProgram(program.id)}
-                >
-                  Import program
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className="rounded-xl border border-emerald-400 px-4 py-2 text-sm text-emerald-200"
+                    onClick={() => importProgram(program.id)}
+                  >
+                    Import nhanh
+                  </button>
+                  <button
+                    className="rounded-xl border border-sky-400/70 px-4 py-2 text-sm text-sky-200 hover:bg-sky-500/10"
+                    onClick={() => importAndEditProgram(program.id)}
+                  >
+                    Import &amp; chỉnh sửa
+                  </button>
+                </div>
               </div>
               <ul className="space-y-2">
                 {program.milestones.map((milestone) => (

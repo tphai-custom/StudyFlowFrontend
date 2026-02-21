@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { addDays } from "date-fns";
+import { useRouter } from "next/navigation";
 import { templates } from "@/src/lib/seed/demoData";
 import { saveTask } from "@/src/lib/storage/tasksRepo";
+import { createDraft } from "@/src/lib/storage/draftsRepo";
 import { getUserProfile } from "@/src/lib/storage/profileRepo";
 import { UserProfile } from "@/src/lib/types";
 import { TaskFormValues } from "@/src/lib/validation/taskSchema";
 
 export default function TemplatesPage() {
+  const router = useRouter();
   const [status, setStatus] = useState<string>("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [filters, setFilters] = useState({
@@ -47,6 +50,28 @@ export default function TemplatesPage() {
       return true;
     });
   }, [filters]);
+
+  const importAndEdit = async (templateId: string) => {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    const draft = await createDraft({
+      draftType: "template",
+      sourceId: templateId,
+      name: template.name,
+      description: `Template ${template.durationDays} ngày · ${template.recommendedMinutesPerDay} phút/ngày`,
+      items: template.tasks.map((task, i) => ({
+        id: crypto.randomUUID(),
+        title: task.title,
+        durationMin: task.estimatedMinutes,
+        difficulty: task.difficulty,
+        subject: task.subject,
+        successCriteria: "Hoàn thành mục tiêu",
+        orderIndex: i,
+        notes: "",
+      })),
+    });
+    router.push(`/imports/editor/${draft.id}`);
+  };
 
   const importTemplate = async (templateId: string) => {
     const template = templates.find((item) => item.id === templateId);
@@ -179,7 +204,13 @@ export default function TemplatesPage() {
               className="w-full rounded-xl border border-emerald-400 px-4 py-2 text-sm text-emerald-200"
               onClick={() => importTemplate(template.id)}
             >
-              Import template
+              Import nhanh
+            </button>
+            <button
+              className="w-full rounded-xl border border-sky-400/70 px-4 py-2 text-sm text-sky-200 hover:bg-sky-500/10"
+              onClick={() => importAndEdit(template.id)}
+            >
+              Import &amp; chỉnh sửa
             </button>
           </div>
           ))

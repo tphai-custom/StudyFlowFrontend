@@ -38,6 +38,13 @@ export const NAV_SECTIONS: NavSection[] = [
   { href: "/stats", label: "Thống kê" },
   { href: "/templates", label: "Kế hoạch mẫu" },
   { href: "/programs", label: "Chương trình học" },
+  {
+    label: "Import & Chỉnh sửa",
+    children: [
+      { href: "/imports/templates", label: "Draft Templates" },
+      { href: "/imports/programs", label: "Draft Programs" },
+    ],
+  },
   { href: "/library", label: "Thư viện" },
   {
     href: "/settings",

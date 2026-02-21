@@ -71,7 +71,7 @@ export default function FreeTimePage() {
       </header>
       
       <div className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 text-sm text-sky-200">
-        💡 <strong>Mẹo:</strong> Dùng phím Tab để di chuyển giữa các trường nhanh hơn. Slot sẽ được tự động làm sạch (gộp, cắt, làm tròn) trước khi xếp lịch.
+        💡 <strong>Mẹo:</strong> Dùng <kbd className="rounded border border-sky-400/50 px-1">Tab</kbd> để chuyển giữa các ô (Thứ → Bắt đầu → Kết thúc → Lưu). Trong ô giờ: gõ số trực tiếp (vd <code>0</code>, <code>7</code>, <code>3</code>, <code>0</code> → 07:30) hoặc dùng <kbd className="rounded border border-sky-400/50 px-1">↑</kbd><kbd className="rounded border border-sky-400/50 px-1">↓</kbd> để chỉnh nhanh. Nhấn <kbd className="rounded border border-sky-400/50 px-1">Enter</kbd> để lưu ngay.
       </div>
 
       <section className="card">

@@ -10,6 +10,7 @@ import { rebuildPlan, exportPlan } from "@/src/lib/planner/planService";
 import { PlanRecord, Session } from "@/src/lib/types";
 import { getSettings } from "@/src/lib/storage/settingsRepo";
 import { getBrowserTimezone, getDayKeyFromDate, getDayKeyFromISO, getMonthKeyFromISO } from "@/src/lib/datetime";
+import { getPlanMetrics, PlanMetrics } from "@/src/lib/storage/metricsRepo";
 
 const views = [
   { key: "year", label: "Năm" },
@@ -46,6 +47,9 @@ export default function PlanPage() {
   const [loading, setLoading] = useState(false);
   const browserTimezone = getBrowserTimezone();
   const [timezone, setTimezone] = useState<string>(browserTimezone);
+  const [metricsRange, setMetricsRange] = useState<"day" | "week" | "month">("week");
+  const [metrics, setMetrics] = useState<PlanMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -69,6 +73,15 @@ export default function PlanPage() {
     const requestedView = (searchParams?.get("view") as ViewKey) ?? "week";
     setView(requestedView);
   }, [searchParams]);
+
+  useEffect(() => {
+    const todayKey = getDayKeyFromDate(new Date(), timezone);
+    setMetricsLoading(true);
+    getPlanMetrics(metricsRange, todayKey)
+      .then(setMetrics)
+      .catch(() => setMetrics(null))
+      .finally(() => setMetricsLoading(false));
+  }, [metricsRange, timezone]);
 
   const groupedSessions = useMemo(() => {
     const focusSessions = plan?.sessions.filter((session) => session.source !== "break") ?? [];
@@ -136,9 +149,15 @@ export default function PlanPage() {
       return (
         <div className="grid-auto">
           {Object.entries(months).map(([month, count]) => (
-            <div key={month} className="rounded-lg border border-zinc-700/60 p-4">
+            <div
+              key={month}
+              className="rounded-lg border border-zinc-700/60 p-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
+              title="Nhấn để xem theo tuần"
+              onClick={() => handleViewSwitch("week")}
+            >
               <p className="text-sm text-zinc-400">{month}</p>
               <p className="text-2xl font-bold">{count} sessions</p>
+              <p className="text-xs text-zinc-500 mt-1">Nhấn → Xem tuần</p>
             </div>
           ))}
         </div>
@@ -146,42 +165,55 @@ export default function PlanPage() {
     }
 
     if (view === "month" || view === "week") {
+      const todayKey = getDayKeyFromDate(new Date(), timezone);
+      const allEntries = Object.entries(groupedSessions).sort((a, b) => a[0].localeCompare(b[0]));
+      const displayEntries =
+        view === "week"
+          ? allEntries.filter(([day]) => day >= todayKey).slice(0, 7)
+          : allEntries.slice(0, 30);
       return (
         <div className="space-y-3">
-          {Object.entries(groupedSessions)
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .slice(0, view === "week" ? 7 : 30)
-            .map(([day, daySessions]) => (
-              <div key={day} className="rounded-lg border border-zinc-700/60 p-4">
-                <p className="text-sm text-zinc-400">{day}</p>
-                <ul className="mt-2 space-y-2">
-                  {daySessions.map((session) => {
-                    const successCriteriaList = normalizeSuccessCriteria(session.successCriteria);
-                    return (
-                      <li key={session.id} className="flex flex-col gap-1 rounded-lg border border-zinc-800/60 p-3 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs uppercase text-zinc-500">
-                              {session.source === "habit" ? "Habit" : session.subject}
-                            </p>
-                            <p className="font-semibold">
-                              {session.title}
-                              {session.milestoneTitle ? ` · ${session.milestoneTitle}` : ""}
-                            </p>
-                          </div>
-                          <span className="text-xs text-zinc-500">
-                            {format(new Date(session.plannedStart), "HH:mm")} · {session.minutes}p
-                          </span>
+          {displayEntries.length === 0 && (
+            <p className="text-sm text-zinc-400">
+              {view === "week" ? "Không có phiên học nào trong 7 ngày tới." : "Không có phiên học nào."}
+            </p>
+          )}
+          {displayEntries.map(([day, daySessions]) => (
+            <div
+              key={day}
+              className="rounded-lg border border-zinc-700/60 p-4 cursor-pointer hover:bg-zinc-800/30 transition-colors"
+              title="Nhấn để xem chi tiết ngày này"
+              onClick={() => handleViewSwitch("day")}
+            >
+              <p className="text-sm text-zinc-400">{day}</p>
+              <ul className="mt-2 space-y-2">
+                {daySessions.map((session) => {
+                  const successCriteriaList = normalizeSuccessCriteria(session.successCriteria);
+                  return (
+                    <li key={session.id} className="flex flex-col gap-1 rounded-lg border border-zinc-800/60 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs uppercase text-zinc-500">
+                            {session.source === "habit" ? "Habit" : session.subject}
+                          </p>
+                          <p className="font-semibold">
+                            {session.title}
+                            {session.milestoneTitle ? ` · ${session.milestoneTitle}` : ""}
+                          </p>
                         </div>
-                        <p className="text-xs text-emerald-300">
-                          Học gì – đạt gì: {successCriteriaList.length ? successCriteriaList.join(", ") : "Chưa có tiêu chí"}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+                        <span className="text-xs text-zinc-500">
+                          {format(new Date(session.plannedStart), "HH:mm")} · {session.minutes}p
+                        </span>
+                      </div>
+                      <p className="text-xs text-emerald-300">
+                        Học gì – đạt gì: {successCriteriaList.length ? successCriteriaList.join(", ") : "Chưa có tiêu chí"}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
       );
     }
@@ -307,6 +339,70 @@ export default function PlanPage() {
         </div>
         {renderView()}
       </section>
+
+      {/* B1: Plan Quality Metrics Section */}
+      <section className="card space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold">Chất lượng kế hoạch</h2>
+          <div className="flex gap-2">
+            {(["day", "week", "month"] as const).map((r) => (
+              <button
+                key={r}
+                className={`rounded-full px-3 py-1 text-xs ${metricsRange === r ? "bg-sky-500 text-black" : "bg-zinc-800 text-zinc-300"}`}
+                onClick={() => setMetricsRange(r)}
+              >
+                {r === "day" ? "Ngày" : r === "week" ? "Tuần" : "Tháng"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {metricsLoading ? (
+          <p className="text-sm text-zinc-500">Đang tải chỉ số...</p>
+        ) : !metrics || metrics.planVersion === null ? (
+          <p className="text-sm text-zinc-500">Chưa có kế hoạch để đánh giá. Hãy tạo kế hoạch trước.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Completion Rate Card */}
+            <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/50 p-4 space-y-2">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Tỷ lệ hoàn thành</p>
+              <p className={`text-3xl font-bold ${metrics.completionRate >= 70 ? "text-emerald-400" : metrics.completionRate >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                {metrics.completionRate}%
+              </p>
+              <p className="text-sm text-zinc-400">{metrics.doneSessions}/{metrics.totalSessions} phiên đã hoàn thành</p>
+              <div className="h-2 w-full rounded-full bg-zinc-700">
+                <div
+                  className={`h-2 rounded-full transition-all ${metrics.completionRate >= 70 ? "bg-emerald-500" : metrics.completionRate >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
+                  style={{ width: `${Math.min(metrics.completionRate, 100)}%` }}
+                />
+              </div>
+            </div>
+            {/* Feasibility Score Card */}
+            <div className="rounded-xl border border-zinc-700/60 bg-zinc-900/50 p-4 space-y-2">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Điểm khả thi</p>
+              <p className={`text-3xl font-bold ${metrics.feasibilityScore >= 70 ? "text-emerald-400" : metrics.feasibilityScore >= 40 ? "text-yellow-400" : "text-red-400"}`}>
+                {metrics.feasibilityScore}<span className="text-base font-normal text-zinc-500">/100</span>
+              </p>
+              <div className="h-2 w-full rounded-full bg-zinc-700">
+                <div
+                  className={`h-2 rounded-full transition-all ${metrics.feasibilityScore >= 70 ? "bg-emerald-500" : metrics.feasibilityScore >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
+                  style={{ width: `${metrics.feasibilityScore}%` }}
+                />
+              </div>
+              {metrics.feasibilityReasons.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {metrics.feasibilityReasons.map((reason, i) => (
+                    <li key={i} className="text-xs text-zinc-400">• {reason}</li>
+                  ))}
+                </ul>
+              )}
+              {metrics.feasibilityReasons.length === 0 && (
+                <p className="text-xs text-emerald-400">✓ Kế hoạch khả thi, không có vấn đề phát hiện</p>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+
       {plan && plan.unscheduledTasks.length > 0 && (
         <section className="card">
           <h2 className="font-semibold">Không đủ thời gian cho</h2>
