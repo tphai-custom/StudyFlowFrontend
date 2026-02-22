@@ -93,9 +93,6 @@ export default function RegisterPage() {
                 </label>
               ))}
             </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              Tài khoản quản trị do hệ thống cấp, không thể tự đăng ký.
-            </p>
           </div>
 
           {/* Name row */}

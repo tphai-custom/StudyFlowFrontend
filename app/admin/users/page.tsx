@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { adminListUsers, adminUpdateUser, adminResetPassword } from "@/src/lib/api/admin";
 import { AuthUser, ROLE_LABELS } from "@/src/lib/auth";
 
@@ -111,6 +112,12 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
+                      <Link
+                        href={`/admin/users/${user.id}`}
+                        className="rounded bg-zinc-700/50 px-2 py-0.5 text-xs text-zinc-300 hover:bg-zinc-700"
+                      >
+                        Chi tiết
+                      </Link>
                       {user.role !== "admin" && (
                         <button
                           onClick={() => toggleActive(user)}

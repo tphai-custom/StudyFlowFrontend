@@ -28,20 +28,27 @@ const GRADE_OPTIONS = [
 
 const SUBJECT_LIST = ["Toán", "Văn", "Anh", "Lý", "Hoá", "Sinh", "Sử", "Địa", "GDCD", "Tin học", "Tiếng Nhật", "Tiếng Pháp"];
 
-const TIMEZONE_LIST = [
-  "Asia/Ho_Chi_Minh",
-  "Asia/Bangkok",
-  "Asia/Singapore",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Shanghai",
-  "Asia/Kolkata",
-  "Europe/London",
-  "Europe/Paris",
-  "America/New_York",
-  "America/Los_Angeles",
-  "UTC",
-];
+// GMT offsets from -12 to +14
+const GMT_OFFSETS: { value: number; label: string }[] = (() => {
+  const list = [];
+  const NAMED: Record<number, string> = {
+    420: " (Việt Nam / Bangkok)",
+    480: " (Singapore / Bắc Kinh)",
+    540: " (Tokyo / Seoul)",
+    330: " (Ấn Độ)",
+    0: " (UTC)",
+    60: " (Paris / Berlin mùa hè)",
+    "-300": " (New York)",
+    "-480": " (Los Angeles)",
+  };
+  for (let h = -12; h <= 14; h++) {
+    const mins = h * 60;
+    const sign = h >= 0 ? "+" : "";
+    const note = NAMED[mins] ?? "";
+    list.push({ value: mins, label: `GMT${sign}${h}${note}` });
+  }
+  return list;
+})();
 
 const paceOptions = [
   { value: "slow", label: "Chậm" },
@@ -93,7 +100,6 @@ function SubjectChips({
 export default function UserProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [status, setStatus] = useState<string>("");
-  const [tzSearch, setTzSearch] = useState("");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [copyMsg, setCopyMsg] = useState("");
   const [rotateLoading, setRotateLoading] = useState(false);
@@ -112,6 +118,7 @@ export default function UserProfilePage() {
     customFocus: 50,
     customRest: 10,
     timezone: "Asia/Ho_Chi_Minh",
+    tzOffsetMinutes: 420,
   });
 
   useEffect(() => {
@@ -139,8 +146,9 @@ export default function UserProfilePage() {
         customFocus: customMatch ? Number(customMatch[1]) : 50,
         customRest: customMatch ? Number(customMatch[2]) : 10,
         timezone: existing.timezone,
+        tzOffsetMinutes: existing.tzOffsetMinutes ?? 420,
       });
-      setTzSearch(existing.timezone);
+      // timezone offset already set above
     })();
   }, []);
 
@@ -174,13 +182,14 @@ export default function UserProfilePage() {
       dailyLimitPreference: Number(form.dailyLimitPreference),
       favoriteBreakPreset: resolvedPreset,
       timezone: form.timezone,
+      tzOffsetMinutes: Number(form.tzOffsetMinutes),
     } satisfies Omit<UserProfile, "updatedAt">;
     const saved = await saveUserProfile(payload);
     setProfile(saved);
     setStatus("✓ Đã lưu hồ sơ học tập. Planner sẽ cá nhân hoá đề xuất.");
   };
 
-  const filteredTz = TIMEZONE_LIST.filter((tz) => tz.toLowerCase().includes(tzSearch.toLowerCase()));
+
 
   if (!profile) {
     return <p className="text-sm text-zinc-400">Đang tải hồ sơ...</p>;
@@ -431,30 +440,21 @@ export default function UserProfilePage() {
             )}
           </div>
 
-          {/* Timezone — combobox with search */}
+          {/* Timezone — GMT offset picker */}
           <div className="grid gap-1">
-            <label className="text-sm text-zinc-400">Múi giờ (Timezone)</label>
-            <input
-              type="text"
-              placeholder="Tìm timezone… (vd: Ho_Chi_Minh, Tokyo)"
-              className="rounded-t-lg border border-b-0 border-zinc-700 bg-transparent p-2 text-sm"
-              value={tzSearch}
-              onChange={(e) => setTzSearch(e.target.value)}
-            />
+            <label className="text-sm text-zinc-400">Múi giờ (GMT)</label>
             <select
-              size={4}
-              className="rounded-b-lg border border-zinc-700 bg-zinc-900 p-1 text-sm"
-              value={form.timezone}
-              onChange={(e) => {
-                handleChange("timezone", e.target.value);
-                setTzSearch(e.target.value);
-              }}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm"
+              value={form.tzOffsetMinutes}
+              onChange={(e) => handleChange("tzOffsetMinutes", Number(e.target.value))}
             >
-              {filteredTz.map((tz) => (
-                <option key={tz} value={tz}>{tz}</option>
+              {GMT_OFFSETS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <p className="text-xs text-zinc-500">Hiện tại: <code>{form.timezone}</code></p>
+            <p className="text-xs text-zinc-500">
+              Hiện tại: <code>{GMT_OFFSETS.find((o) => o.value === form.tzOffsetMinutes)?.label ?? `GMT offset ${form.tzOffsetMinutes}m`}</code>
+            </p>
           </div>
 
           <button className="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-black" type="submit">

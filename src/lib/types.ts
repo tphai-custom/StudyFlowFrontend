@@ -29,6 +29,8 @@ export type Task = {
   createdAt: string;
   updatedAt: string;
   progressMinutes: number;
+  lockedByParent?: boolean;
+  createdByRole?: string;
 };
 
 export type Habit = {
@@ -76,12 +78,17 @@ export type Session = {
 
 export type LibraryItem = {
   id: ID;
-  subject: string;
+  subject: string;       // toan | ngu_van | tieng_anh | lich_su | dia_li
+  grade?: number | null; // 6..10
   level: string;
   title: string;
   summary: string;
-  url?: string;
+  description?: string | null;
+  resource_type: string; // lesson | summary | worksheet | video | book | website
+  difficulty?: number | null; // 1..5
+  url?: string | null;
   tags: string[];
+  created_by?: string | null;
 };
 
 export type TemplatePlan = {
@@ -194,5 +201,6 @@ export type UserProfile = {
   dailyLimitPreference: number;
   favoriteBreakPreset: string;
   timezone: string;
+  tzOffsetMinutes: number; // GMT offset in minutes, e.g. GMT+7 = 420
   updatedAt: string;
 };

@@ -60,6 +60,16 @@ export const PARENT_NAV: NavSection[] = [
   { href: "/parent/children", label: "Liên kết con em" },
   { href: "/parent/suggestions", label: "Gợi ý đã gửi" },
   {
+    label: "Giới thiệu & Hướng dẫn",
+    children: [
+      { href: "/guide", label: "Hướng dẫn phụ huynh" },
+      { href: "/guide/parent/link-child", label: "Liên kết con em" },
+      { href: "/guide/parent/track-progress", label: "Theo dõi tiến độ" },
+      { href: "/guide/parent/assign-tasks", label: "Giao & khoá nhiệm vụ" },
+      { href: "/guide/parent/faq", label: "Câu hỏi thường gặp" },
+    ],
+  },
+  {
     href: "/settings",
     label: "Cài đặt",
     children: [{ href: "/settings/profile", label: "Hồ sơ" }],

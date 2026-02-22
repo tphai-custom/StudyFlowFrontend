@@ -8,9 +8,10 @@ import { getUser, getFullName, AuthUser } from "@/src/lib/auth";
 export default function ParentDashboardPage() {
   const [children, setChildren] = useState<LinkSchema[]>([]);
   const [loading, setLoading] = useState(true);
-  const user: AuthUser | null = getUser();
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
+    setUser(getUser());
     parentListChildren()
       .then(setChildren)
       .catch(() => {})

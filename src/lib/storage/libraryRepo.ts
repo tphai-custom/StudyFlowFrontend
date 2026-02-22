@@ -9,10 +9,21 @@ export async function saveLibraryItems(items: LibraryItem[]): Promise<void> {
   await apiPost<LibraryItem[]>("/library/", items);
 }
 
-export async function searchLibrary(query: string, subject?: string): Promise<LibraryItem[]> {
+export async function searchLibrary(
+  query: string,
+  subject?: string,
+  grade?: number,
+  resourceType?: string,
+): Promise<LibraryItem[]> {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
   if (subject) params.set("subject", subject);
+  if (grade) params.set("grade", String(grade));
+  if (resourceType) params.set("type", resourceType);
   const qs = params.toString();
   return apiGet<LibraryItem[]>(`/library/${qs ? `?${qs}` : ""}`);
+}
+
+export async function seedLibrary(reseed = false): Promise<{ seeded: number; message: string }> {
+  return apiPost(`/library/seed${reseed ? "?reseed=true" : ""}`, {});
 }
