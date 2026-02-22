@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { parentGetChildPlan } from "@/src/lib/api/parent";
+import { parentGetChildPlan, parentGetLinkedStudents, LinkedStudentInfo } from "@/src/lib/api/parent";
 import { Session } from "@/src/lib/types";
+import { PageHeader } from "@/src/components/PageHeader";
+import { EmptyState } from "@/src/components/EmptyState";
 
 interface ChildPlan {
   id: string;
@@ -21,16 +22,26 @@ const STATUS_LABEL: Record<string, { label: string; className: string }> = {
 export default function ChildPlanPage() {
   const { studentId } = useParams<{ studentId: string }>();
   const [plan, setPlan] = useState<ChildPlan | null>(null);
+  const [student, setStudent] = useState<LinkedStudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!studentId) return;
-    parentGetChildPlan(studentId)
-      .then((data) => setPlan(data as ChildPlan))
-      .catch((e) => setError(e instanceof Error ? e.message : "Không thể tải kế hoạch"))
+    Promise.all([
+      parentGetChildPlan(studentId),
+      parentGetLinkedStudents(),
+    ])
+      .then(([planData, students]) => {
+        setPlan(planData as ChildPlan);
+        const found = students.find((s) => s.student_id === studentId);
+        setStudent(found ?? null);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Không thể tải dữ liệu"))
       .finally(() => setLoading(false));
   }, [studentId]);
+
+  const studentLabel = student ? `${student.full_name} (@${student.username})` : "Học sinh";
 
   const sessions = plan?.sessions ?? [];
   const doneSessions = sessions.filter((s) => s.status === "done");
@@ -48,22 +59,25 @@ export default function ChildPlanPage() {
   const sortedDates = Object.keys(byDate).sort();
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/parent" className="text-sm text-zinc-400 hover:text-zinc-200">
-          ← Tổng quan
-        </Link>
-        <span className="text-zinc-600">/</span>
-        <h1 className="text-xl font-bold">Kế hoạch của học sinh</h1>
-      </div>
-
-      <p className="text-xs text-zinc-500">Student ID: {studentId}</p>
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4">
+      <PageHeader
+        title={`Kế hoạch của ${studentLabel}`}
+        breadcrumbs={[
+          { label: "Phụ huynh", href: "/parent" },
+          { label: studentLabel },
+          { label: "Kế hoạch" },
+        ]}
+      />
 
       {loading && <p className="text-sm text-zinc-400">Đang tải…</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && !plan && (
-        <p className="text-sm text-zinc-400">Học sinh chưa có kế hoạch nào.</p>
+        <EmptyState
+          icon="📅"
+          title="Học sinh chưa có kế hoạch nào"
+          description="Kế hoạch sẽ xuất hiện ở đây sau khi học sinh tạo lịch học."
+        />
       )}
 
       {plan && (
@@ -100,7 +114,11 @@ export default function ChildPlanPage() {
 
           {/* Sessions by date */}
           {sortedDates.length === 0 ? (
-            <p className="text-sm text-zinc-400">Kế hoạch không có buổi học nào.</p>
+            <EmptyState
+              icon="📋"
+              title="Kế hoạch không có buổi học nào"
+              description="Học sinh cần thêm nhiệm vụ và thời gian rảnh để tạo kế hoạch."
+            />
           ) : (
             <div className="space-y-4">
               {sortedDates.map((date) => (

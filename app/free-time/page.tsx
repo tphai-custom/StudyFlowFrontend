@@ -81,7 +81,7 @@ export default function FreeTimePage() {
           <div className="grid gap-1">
             <label className="text-sm">Thứ</label>
             <select
-              className="rounded-lg border border-zinc-700 bg-transparent p-2"
+              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-white"
               value={form.weekday}
               onChange={(e) => setForm((prev) => ({ ...prev, weekday: Number(e.target.value) }))}
             >

@@ -23,7 +23,11 @@ export function SidebarNav() {
   return (
     <nav className="flex flex-col gap-4 text-sm">
       {sections.map((section) => {
-        const isActive = section.href ? pathname?.startsWith(section.href) : false;
+        const isActive = section.href
+          ? section.children
+            ? pathname?.startsWith(section.href) ?? false
+            : pathname === section.href
+          : false;
         return (
           <div key={section.label} className="space-y-1">
             {section.href ? (

@@ -2,15 +2,15 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import {
-  parentListChildren,
+  parentGetLinkedStudents,
   parentCreateSuggestion,
   parentListSuggestions,
-  LinkSchema,
+  LinkedStudentInfo,
   SuggestionSchema,
 } from "@/src/lib/api/parent";
 
 export default function ParentSuggestionsPage() {
-  const [children, setChildren] = useState<LinkSchema[]>([]);
+  const [children, setChildren] = useState<LinkedStudentInfo[]>([]);
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [suggestions, setSuggestions] = useState<SuggestionSchema[]>([]);
   const [type, setType] = useState("general");
@@ -20,7 +20,7 @@ export default function ParentSuggestionsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    parentListChildren().then((links) => {
+    parentGetLinkedStudents().then((links) => {
       setChildren(links);
       if (links.length > 0) setSelectedChild(links[0].student_id);
     });
@@ -68,13 +68,13 @@ export default function ParentSuggestionsPage() {
           <div className="card space-y-3">
             <h2 className="font-semibold">Chọn học sinh</h2>
             <select
-              className="w-full rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm text-white"
               value={selectedChild}
               onChange={(e) => setSelectedChild(e.target.value)}
             >
               {children.map((link) => (
                 <option key={link.student_id} value={link.student_id}>
-                  {link.student_id}
+                  {link.full_name || link.username}
                 </option>
               ))}
             </select>
@@ -87,7 +87,7 @@ export default function ParentSuggestionsPage() {
               <div className="grid gap-1">
                 <label className="text-sm text-zinc-300">Loại gợi ý</label>
                 <select
-                  className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
+                  className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm text-white"
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                 >

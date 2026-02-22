@@ -8,6 +8,13 @@ export interface LinkSchema {
   created_at: string;
 }
 
+export interface LinkedStudentInfo {
+  student_id: string;
+  username: string;
+  full_name: string;
+  linked_at: string;
+}
+
 export interface SuggestionSchema {
   id: string;
   parent_id: string;
@@ -19,6 +26,57 @@ export interface SuggestionSchema {
   created_at: string;
 }
 
+export interface UpcomingDeadline {
+  task_id: string;
+  title: string;
+  subject: string;
+  deadline: string;
+  days_left: number;
+}
+
+export interface WeeklySummary {
+  student_id: string;
+  week: string;
+  total_minutes: number;
+  completion_rate: number;
+  upcoming_deadlines: UpcomingDeadline[];
+  alerts: string[];
+  total_sessions: number;
+  done_sessions: number;
+  free_slot_minutes: number;
+  planned_minutes: number;
+}
+
+export interface NudgeMessage {
+  situation: string;
+  text: string;
+}
+
+export interface NudgeResponse {
+  student_name: string;
+  tone: string;
+  messages: NudgeMessage[];
+  summary: WeeklySummary;
+}
+
+export interface NoteSchema {
+  id: string;
+  parent_id: string;
+  student_id: string;
+  message: string;
+  tag: string;
+  reaction?: string | null;
+  created_at: string;
+}
+
+export interface StudentStats {
+  total_minutes: number;
+  completion_rate: number;
+  top_subject: string | null;
+  sessions_done: number;
+  range: string;
+}
+
 export const parentRequestLink = (child_username: string, link_code: string) =>
   apiPost<LinkSchema>("/parent/link", { child_username, link_code });
 
@@ -26,14 +84,38 @@ export const parentListLinks = () => apiGet<LinkSchema[]>("/parent/links");
 
 export const parentListChildren = () => apiGet<LinkSchema[]>("/parent/children");
 
-export const parentGetChildTasks = (student_id: string) =>
-  apiGet<unknown[]>(`/parent/child/${student_id}/tasks`);
+export const parentGetLinkedStudents = () =>
+  apiGet<LinkedStudentInfo[]>("/parent/linked-students");
+
+export const parentGetChildTasks = (student_id: string, filter?: string) =>
+  apiGet<unknown[]>(`/parent/students/${student_id}/tasks${filter ? `?filter=${filter}` : ""}`);
 
 export const parentGetChildPlan = (student_id: string) =>
-  apiGet<unknown>(`/parent/child/${student_id}/plan`);
+  apiGet<unknown>(`/parent/students/${student_id}/plan`);
 
 export const parentGetChildHabits = (student_id: string) =>
   apiGet<unknown[]>(`/parent/child/${student_id}/habits`);
+
+export const parentGetWeeklySummary = (student_id: string, week?: string) =>
+  apiGet<WeeklySummary>(`/parent/students/${student_id}/weekly-summary${week ? `?week=${week}` : ""}`);
+
+export const parentGetStudentStats = (student_id: string, range: "week" | "month" = "week") =>
+  apiGet<StudentStats>(`/parent/students/${student_id}/stats?range=${range}`);
+
+export const parentGetNudges = (student_id: string, tone: "light" | "medium" | "strict" = "medium") =>
+  apiGet<NudgeResponse>(`/parent/students/${student_id}/nudges?tone=${tone}`);
+
+export const parentCreateNote = (student_id: string, message: string, tag?: string) =>
+  apiPost<NoteSchema>(`/parent/students/${student_id}/notes`, { message, tag: tag ?? "general" });
+
+export const parentListNotes = (student_id: string) =>
+  apiGet<NoteSchema[]>(`/parent/students/${student_id}/notes`);
+
+export const studentReactNote = (note_id: string, reaction: string) =>
+  apiPost<NoteSchema>(`/parent/notes/${note_id}/reaction`, { reaction });
+
+export const studentListMyNotes = () =>
+  apiGet<NoteSchema[]>("/parent/student/notes");
 
 export const parentCreateSuggestion = (
   student_id: string,

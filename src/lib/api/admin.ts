@@ -2,6 +2,8 @@ import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 import type { AuthUser } from "@/src/lib/auth";
 import type { Task, LibraryItem } from "@/src/lib/types";
 
+export type { LibraryItem };
+
 export interface LibraryItemCreate {
   subject: string;
   level: string;

@@ -1,10 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { taskSchema, TaskFormValues } from "@/src/lib/validation/taskSchema";
 import { listTasks, saveTask, deleteTask } from "@/src/lib/storage/tasksRepo";
 import { Task } from "@/src/lib/types";
 import ConfirmDialog from "@/src/components/ConfirmDialog";
+import { PageHeader } from "@/src/components/PageHeader";
+import { EmptyState } from "@/src/components/EmptyState";
 
 const defaultForm: TaskFormValues = {
   subject: "",
@@ -48,6 +51,13 @@ export default function TasksPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<string>("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  // Filter state
+  const [filterSubject, setFilterSubject] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterSort, setFilterSort] = useState<"deadline" | "difficulty" | "title">("deadline");
 
   useEffect(() => {
     (async () => setTasks(await listTasks()))();
@@ -167,16 +177,41 @@ export default function TasksPage() {
     }));
   };
 
+  // Filtered + sorted task list
+  const filteredTasks = useMemo(() => {
+    let list = [...tasks];
+    if (filterSubject) list = list.filter((t) => t.subject?.toLowerCase() === filterSubject.toLowerCase());
+    if (filterSearch) list = list.filter((t) => t.title.toLowerCase().includes(filterSearch.toLowerCase()) || t.subject?.toLowerCase().includes(filterSearch.toLowerCase()));
+    if (filterStatus === "done") list = list.filter((t) => (t.progressMinutes ?? 0) >= (t.estimatedMinutes ?? 1));
+    else if (filterStatus === "active") list = list.filter((t) => (t.progressMinutes ?? 0) < (t.estimatedMinutes ?? 1));
+    else if (filterStatus === "overdue") list = list.filter((t) => new Date(t.deadline) < new Date() && (t.progressMinutes ?? 0) < (t.estimatedMinutes ?? 1));
+    list.sort((a, b) => {
+      if (filterSort === "deadline") return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      if (filterSort === "difficulty") return (b.difficulty ?? 0) - (a.difficulty ?? 0);
+      return a.title.localeCompare(b.title);
+    });
+    return list;
+  }, [tasks, filterSubject, filterSearch, filterStatus, filterSort]);
+
+  const uniqueSubjects = useMemo(() => [...new Set(tasks.map((t) => t.subject).filter(Boolean))], [tasks]);
+
 
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Nhiệm vụ học tập</h1>
-        <p className="text-sm text-zinc-400">
-          Nhập nhiệm vụ thật với đầy đủ deadline, độ khó và tiêu chí checklist. Mọi lỗi hiển thị ngay dưới trường nhập.
-        </p>
-      </header>
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4">
+      <PageHeader
+        title="Nhiệm vụ học tập"
+        description="Nhập nhiệm vụ với deadline, độ khó và tiêu chí thành công."
+        actions={
+          <button
+            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 transition-colors"
+            onClick={() => setShowForm((v) => !v)}
+          >
+            {showForm ? "× Đóng form" : "+ Nhiệm vụ mới"}
+          </button>
+        }
+      />
+      {showForm && (
       <section className="card">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Tạo nhiệm vụ mới</h2>
@@ -195,6 +230,8 @@ export default function TasksPage() {
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Môn học*</label>
             <input
+              id="subject"
+              name="subject"
               className="rounded-lg border border-zinc-700 bg-transparent p-2"
               value={formValues.subject}
               onChange={(e) => handleChange("subject", e.target.value)}
@@ -205,6 +242,8 @@ export default function TasksPage() {
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Tên nhiệm vụ*</label>
             <input
+              id="title"
+              name="title"
               className="rounded-lg border border-zinc-700 bg-transparent p-2"
               value={formValues.title}
               onChange={(e) => handleChange("title", e.target.value)}
@@ -215,6 +254,8 @@ export default function TasksPage() {
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Deadline*</label>
             <input
+              id="deadline"
+              name="deadline"
               type="datetime-local"
               className="rounded-lg border border-zinc-700 bg-transparent p-2"
               value={formValues.deadline}
@@ -229,6 +270,8 @@ export default function TasksPage() {
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Độ khó (1-5)*</label>
             <input
+              id="difficulty"
+              name="difficulty"
               type="number"
               min={1}
               max={5}
@@ -242,6 +285,8 @@ export default function TasksPage() {
             <label className="text-sm text-zinc-300">Ước lượng thời gian*</label>
             <div className="flex flex-wrap gap-2">
               <input
+                id="durationEstimateMin"
+                name="durationEstimateMin"
                 type="number"
                 min={1}
                 className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
@@ -250,6 +295,8 @@ export default function TasksPage() {
               />
               <span className="self-center text-sm text-zinc-500">–</span>
               <input
+                id="durationEstimateMax"
+                name="durationEstimateMax"
                 type="number"
                 min={1}
                 className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
@@ -257,6 +304,8 @@ export default function TasksPage() {
                 onChange={(e) => handleChange("durationEstimateMax", Number(e.target.value))}
               />
               <select
+                id="durationUnit"
+                name="durationUnit"
                 className="rounded-lg border border-zinc-700 bg-transparent p-2"
                 value={formValues.durationUnit}
                 onChange={(e) => handleChange("durationUnit", e.target.value as TaskFormValues["durationUnit"])}
@@ -288,6 +337,8 @@ export default function TasksPage() {
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Mức quan trọng (1-3)</label>
             <input
+              id="importance"
+              name="importance"
               type="number"
               min={1}
               max={3}
@@ -304,6 +355,8 @@ export default function TasksPage() {
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Học gì (optional)</label>
             <textarea
+              id="contentFocus"
+              name="contentFocus"
               className="rounded-lg border border-zinc-700 bg-transparent p-2"
               value={formValues.contentFocus}
               onChange={(e) => handleChange("contentFocus", e.target.value)}
@@ -319,6 +372,8 @@ export default function TasksPage() {
               {formValues.successCriteria.map((criteria, index) => (
                 <div key={`criteria-${index}`} className="flex gap-2">
                   <input
+                    id={`successCriteria-${index}`}
+                    name={`successCriteria-${index}`}
                     className="flex-1 rounded-lg border border-zinc-700 bg-transparent p-2"
                     value={criteria}
                     onChange={(e) => updateSuccessCriterion(index, e.target.value)}
@@ -355,6 +410,8 @@ export default function TasksPage() {
                 <div key={`milestone-${index}`} className="rounded-lg border border-zinc-700/60 p-3">
                   <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
                     <input
+                      id={`milestone-title-${index}`}
+                      name={`milestone-title-${index}`}
                       className="rounded-lg border border-zinc-700 bg-transparent p-2"
                       value={milestone.title}
                       onChange={(e) => updateMilestone(index, "title", e.target.value)}
@@ -362,6 +419,8 @@ export default function TasksPage() {
                     />
                     <div className="flex items-center gap-2">
                       <input
+                        id={`milestone-minutes-${index}`}
+                        name={`milestone-minutes-${index}`}
                         type="number"
                         min={5}
                         max={480}
@@ -400,61 +459,102 @@ export default function TasksPage() {
           {status && <p className="text-sm text-emerald-400">{status}</p>}
         </form>
       </section>
+      )}
       <section className="card space-y-3">
-        <h2 className="text-xl font-semibold">Danh sách nhiệm vụ</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">Danh sách nhiệm vụ</h2>
+          <span className="text-xs text-zinc-500">{filteredTasks.length}/{tasks.length} nhiệm vụ</span>
+        </div>
+        {/* Filter bar */}
+        <div className="flex flex-wrap gap-2">
+          <input
+            id="filterSearch"
+            name="filterSearch"
+            className="min-w-[160px] flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm"
+            placeholder="Tìm kiếm…"
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+          />
+          <select
+            id="filterSubject"
+            name="filterSubject"
+            className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+            value={filterSubject}
+            onChange={(e) => setFilterSubject(e.target.value)}
+          >
+            <option value="">Tất cả môn</option>
+            {uniqueSubjects.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          <select
+            id="filterStatus"
+            name="filterStatus"
+            className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="active">Chưa xong</option>
+            <option value="done">Đã xong</option>
+            <option value="overdue">Quá hạn</option>
+          </select>
+          <select
+            id="filterSort"
+            name="filterSort"
+            className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm"
+            value={filterSort}
+            onChange={(e) => setFilterSort(e.target.value as "deadline" | "difficulty" | "title")}
+          >
+            <option value="deadline">Sắp xếp: Deadline</option>
+            <option value="difficulty">Sắp xếp: Độ khó</option>
+            <option value="title">Sắp xếp: Tên</option>
+          </select>
+        </div>
         {tasks.length === 0 ? (
-          <p className="text-sm text-zinc-400">Chưa có nhiệm vụ. Hãy nhập ít nhất 1 task.</p>
+          <EmptyState
+            icon="📚"
+            title="Chưa có nhiệm vụ nào"
+            description="Tạo nhiệm vụ đầu tiên để bắt đầu lập kế hoạch học tập."
+            primaryCTA={{ label: "+ Tạo ngay", href: "#" }}
+          />
+        ) : filteredTasks.length === 0 ? (
+          <p className="text-sm text-zinc-400">Không có nhiệm vụ nào khớp bộ lọc.</p>
         ) : (
           <ul className="space-y-3">
-            {tasks.map((task) => (
+            {filteredTasks.map((task) => {
+              const isOverdue = new Date(task.deadline) < new Date() && (task.progressMinutes ?? 0) < (task.estimatedMinutes ?? 1);
+              const pct = task.estimatedMinutes > 0 ? Math.min(100, Math.round(((task.progressMinutes ?? 0) / task.estimatedMinutes) * 100)) : 0;
+              return (
               <li key={task.id} className="rounded-lg border border-zinc-700/60 p-3">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs uppercase text-zinc-500">{task.subject}</p>
-                    <p className="text-lg font-semibold">{task.title}</p>
-                    <p className="text-sm text-zinc-400">
-                      Deadline {new Date(task.deadline).toLocaleString("vi-VN")} · Độ khó {task.difficulty}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {(() => {
-                        const minMinutes = task.durationEstimateMin ?? task.estimatedMinutes;
-                        const maxMinutes = task.durationEstimateMax ?? task.estimatedMinutes;
-                        const unit = task.durationUnit ?? "minutes";
-                        if (unit === "hours") {
-                          const minHours = (minMinutes / 60).toFixed(1);
-                          const maxHours = (maxMinutes / 60).toFixed(1);
-                          return `Ước lượng: ${minHours}–${maxHours} giờ`;
-                        }
-                        return `Ước lượng: ${minMinutes}–${maxMinutes} phút`;
-                      })()}
-                    </p>
-                    <div>
-                      <p className="text-xs text-zinc-500">Tiêu chí:</p>
-                      <ul className="list-disc pl-4 text-xs text-zinc-400">
-                        {(Array.isArray(task.successCriteria)
-                          ? task.successCriteria
-                          : task.successCriteria
-                          ? [task.successCriteria]
-                          : ["Hoàn thành buổi học"]
-                        ).map((criteria, idx) => (
-                          <li key={`${task.id}-criteria-${idx}`}>{criteria}</li>
-                        ))}
-                      </ul>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded bg-zinc-700 px-1.5 py-0.5 text-xs text-zinc-300">{task.subject}</span>
+                      {isOverdue && <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-xs text-red-300">⚠️ Quá hạn</span>}
+                      {pct >= 100 && <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-300">✓ Xong</span>}
+                      {task.lockedByParent && <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-300">🔒 Khoá</span>}
                     </div>
-                    {task.milestones && (
-                      <div>
-                        <p className="text-xs text-zinc-500">Milestones:</p>
-                        <ul className="list-disc pl-4 text-xs text-zinc-400">
-                          {task.milestones.map((milestone) => (
-                            <li key={milestone.id}>
-                              {milestone.title} – {milestone.minutesEstimate}p
-                            </li>
-                          ))}
-                        </ul>
+                    <Link href={`/tasks/${task.id}`} className="text-base font-semibold text-zinc-100 hover:text-emerald-300 transition-colors">
+                      {task.title}
+                    </Link>
+                    <p className="text-xs text-zinc-400">
+                      Hạn: {new Date(task.deadline).toLocaleString("vi-VN")} · Độ khó: {task.difficulty}
+                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 rounded-full bg-zinc-800">
+                        <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
                       </div>
-                    )}
+                      <span className="text-xs text-zinc-500 shrink-0">{pct}%</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <Link
+                      href={`/tasks/${task.id}`}
+                      className="rounded border border-zinc-600 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+                    >
+                      Chi tiết
+                    </Link>
                     <button
                       className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
                       onClick={() => setPendingDeleteId(task.id)}
@@ -465,7 +565,8 @@ export default function TasksPage() {
                 </div>
 
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

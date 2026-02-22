@@ -11,6 +11,8 @@ import { PlanRecord, Session } from "@/src/lib/types";
 import { getSettings } from "@/src/lib/storage/settingsRepo";
 import { getBrowserTimezone, getDayKeyFromDate, getDayKeyFromISO, getMonthKeyFromISO } from "@/src/lib/datetime";
 import { getPlanMetrics, PlanMetrics } from "@/src/lib/storage/metricsRepo";
+import { PageHeader } from "@/src/components/PageHeader";
+import { apiLockSession, apiRegeneratePlanPartial } from "@/src/lib/api/plan";
 
 const views = [
   { key: "year", label: "Năm" },
@@ -51,6 +53,7 @@ export default function PlanPage() {
   const [metrics, setMetrics] = useState<PlanMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [viewOffset, setViewOffset] = useState(0);
+  const [lockingId, setLockingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -67,7 +70,7 @@ export default function PlanPage() {
         setStatus(`Plan v${planRecord.planVersion}`);
       }
       setTimezone(appSettings.timezone ?? browserTimezone);
-    })();
+    })().catch(() => {});
   }, [browserTimezone]);
 
   useEffect(() => {
@@ -88,6 +91,37 @@ export default function PlanPage() {
     const focusSessions = plan?.sessions.filter((session) => session.source !== "break") ?? [];
     return groupSessions(focusSessions, timezone);
   }, [plan, timezone]);
+
+  const handleRegenPartial = async () => {
+    setLoading(true);
+    try {
+      await apiRegeneratePlanPartial();
+      const newPlan = await getLatestPlan();
+      if (newPlan) {
+        setPlan(newPlan);
+        const focus = newPlan.sessions.filter((s) => s.source !== "break");
+        setStatus(`Tạo lại ${focus.length} phiên (giữ phiên đã khoá)`);
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Lỗi khi tạo lại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLockToggle = async (session: Session) => {
+    const isLocked = (session as Session & { locked?: boolean }).locked;
+    setLockingId(session.id);
+    try {
+      await apiLockSession(session.id, !isLocked);
+      const newPlan = await getLatestPlan();
+      if (newPlan) setPlan(newPlan);
+    } catch {
+      // silently ignore
+    } finally {
+      setLockingId(null);
+    }
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -285,15 +319,29 @@ export default function PlanPage() {
             return (
               <li key={session.id} className="rounded-lg border border-zinc-700/60 p-3">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold">{session.title}</p>
                     {session.milestoneTitle && (
                       <p className="text-xs text-sky-300">Milestone: {session.milestoneTitle}</p>
                     )}
                   </div>
-                  <span className="text-xs text-zinc-500">
-                    {session.source === "habit" ? "Habit" : session.subject}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs text-zinc-500">
+                      {session.source === "habit" ? "Habit" : session.subject}
+                    </span>
+                    <button
+                      className={`rounded px-2 py-0.5 text-xs transition-colors ${
+                        (session as Session & { locked?: boolean }).locked
+                          ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/40"
+                          : "bg-zinc-700 text-zinc-400 hover:bg-zinc-600"
+                      }`}
+                      disabled={lockingId === session.id}
+                      onClick={(e) => { e.stopPropagation(); handleLockToggle(session); }}
+                      title={(session as Session & { locked?: boolean }).locked ? "Bỏ khoá phiên" : "Khoá phiên (giữ khi tạo lại)"}
+                    >
+                      {lockingId === session.id ? "⏳" : (session as Session & { locked?: boolean }).locked ? "🔒 Khoá" : "🔓"}
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-zinc-400">
                   {format(new Date(session.plannedStart), "HH:mm")} · {session.minutes} phút · Buffer {session.bufferMinutes} phút
@@ -345,31 +393,41 @@ export default function PlanPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Trình tạo kế hoạch</h1>
-          <p className="text-sm text-zinc-400">Tính khả thi trước khi sắp lịch. Giữ buffer để tránh nhồi.</p>
-          <p className="text-sm text-emerald-400">{status}</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            className="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-black"
-            onClick={handleGenerate}
-            disabled={loading}
-          >
-            {loading ? "Đang tạo..." : "Tạo kế hoạch"}
-          </button>
-          {plan && (
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4">
+      <PageHeader
+        title="Trình tạo kế hoạch"
+        description="Tính khả thi trước khi sắp lịch. Giữ buffer để tránh nhồi."
+        actions={
+          <div className="flex gap-2">
+            {plan && (
+              <button
+                className="rounded-lg border border-emerald-500/50 px-4 py-2 text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                onClick={handleRegenPartial}
+                disabled={loading}
+                title="Tạo lại các phiên chưa hoàn thành, giữ lại phiên đã khoá/xong"
+              >
+                🔄 Tạo lại phần còn lại
+              </button>
+            )}
             <button
-              className="rounded-xl border border-zinc-600 px-4 py-2 text-sm"
-              onClick={() => exportPlan(plan, `studyflow-v${plan.planVersion}.ics`)}
+              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 transition-colors"
+              onClick={handleGenerate}
+              disabled={loading}
             >
-              Xuất .ics
+              {loading ? "Đang tạo..." : "➕ Tạo kế hoạch"}
             </button>
-          )}
-        </div>
-      </header>
+            {plan && (
+              <button
+                className="rounded-xl border border-zinc-600 px-4 py-2 text-sm"
+                onClick={() => exportPlan(plan, `studyflow-v${plan.planVersion}.ics`)}
+              >
+                Xuất .ics
+              </button>
+            )}
+          </div>
+        }
+      />
+      {status && <p className="-mt-4 text-sm text-emerald-400">{status}</p>}
       <section className="card space-y-3">
         <div className="flex flex-wrap gap-2">
           {views.map((tab) => (

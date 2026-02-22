@@ -11,7 +11,7 @@ export async function listTasks(): Promise<Task[]> {
   return apiGet<Task[]>("/tasks/");
 }
 
-export async function saveTask(payload: TaskFormValues & { id?: string }): Promise<Task> {
+export async function saveTask(payload: TaskFormValues & { id?: string; notes?: string }): Promise<Task> {
   const durationUnit: Task["durationUnit"] = payload.durationUnit === "hours" ? "hours" : "minutes";
   const minMinutes = toMinutes(payload.durationEstimateMin, durationUnit);
   const maxMinutes = Math.max(minMinutes, toMinutes(payload.durationEstimateMax, durationUnit));
@@ -39,6 +39,7 @@ export async function saveTask(payload: TaskFormValues & { id?: string }): Promi
     contentFocus: payload.contentFocus,
     successCriteria,
     milestones,
+    notes: payload.notes,
   };
 
   if (payload.id) {

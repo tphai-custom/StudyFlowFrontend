@@ -15,6 +15,11 @@ const BREAK_PRESETS = [
 ];
 
 const GRADE_OPTIONS = [
+  { value: "Lớp 1", label: "Lớp 1" },
+  { value: "Lớp 2", label: "Lớp 2" },
+  { value: "Lớp 3", label: "Lớp 3" },
+  { value: "Lớp 4", label: "Lớp 4" },
+  { value: "Lớp 5", label: "Lớp 5" },
   { value: "Lớp 6", label: "Lớp 6" },
   { value: "Lớp 7", label: "Lớp 7" },
   { value: "Lớp 8", label: "Lớp 8" },
@@ -149,7 +154,7 @@ export default function UserProfilePage() {
         tzOffsetMinutes: existing.tzOffsetMinutes ?? 420,
       });
       // timezone offset already set above
-    })();
+    })().catch(() => {});
   }, []);
 
   const handleChange = (field: keyof typeof form, value: string | number | EnergyLevel | string[]) => {

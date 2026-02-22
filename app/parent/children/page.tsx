@@ -1,10 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { parentListLinks, parentRequestLink, LinkSchema } from "@/src/lib/api/parent";
+import { parentListLinks, parentRequestLink, parentGetLinkedStudents, LinkSchema, LinkedStudentInfo } from "@/src/lib/api/parent";
 
 export default function ParentChildrenPage() {
   const [links, setLinks] = useState<LinkSchema[]>([]);
+  const [studentMap, setStudentMap] = useState<Record<string, LinkedStudentInfo>>({});
   const [loading, setLoading] = useState(true);
   const [childUsername, setChildUsername] = useState("");
   const [linkCode, setLinkCode] = useState("");
@@ -14,8 +15,13 @@ export default function ParentChildrenPage() {
 
   const load = () => {
     setLoading(true);
-    parentListLinks()
-      .then(setLinks)
+    Promise.all([parentListLinks(), parentGetLinkedStudents()])
+      .then(([linkList, studentList]) => {
+        setLinks(linkList);
+        const map: Record<string, LinkedStudentInfo> = {};
+        studentList.forEach((s) => { map[s.student_id] = s; });
+        setStudentMap(map);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
@@ -132,7 +138,9 @@ export default function ParentChildrenPage() {
             {links.map((link) => (
               <li key={link.id} className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
                 <div>
-                  <p className="text-sm text-zinc-200">Student: {link.student_id}</p>
+                  <p className="text-sm text-zinc-200">
+                    {studentMap[link.student_id]?.full_name || studentMap[link.student_id]?.username || `Student: ${link.student_id}`}
+                  </p>
                   <p className="text-xs text-zinc-500">
                     {new Date(link.created_at).toLocaleDateString("vi-VN")}
                   </p>

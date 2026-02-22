@@ -8,6 +8,8 @@ import { listSlots } from "@/src/lib/storage/slotsRepo";
 import { getLatestPlan } from "@/src/lib/storage/planRepo";
 import { Task, Session } from "@/src/lib/types";
 import { Tooltip } from "@/src/components/Tooltip";
+import { PageHeader } from "@/src/components/PageHeader";
+import { EmptyState } from "@/src/components/EmptyState";
 
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -34,7 +36,7 @@ export default function DashboardPage() {
         const done = plan.sessions.filter((session) => session.status === "done").length;
         setCompletionRate(plan.sessions.length ? Math.round((done / plan.sessions.length) * 100) : 0);
       }
-    })();
+    })().catch(() => {});
   }, []);
 
   // Determine next step suggestion
@@ -74,12 +76,19 @@ export default function DashboardPage() {
   const nextStep = getNextStepSuggestion();
 
   return (
-    <div className="space-y-6">
-      <header>
-        <p className="text-sm text-zinc-400 uppercase">Tổng quan</p>
-        <h1 className="text-3xl font-semibold">StudyFlow dashboard</h1>
-        <p className="text-sm text-zinc-400">Nắm nhanh nhiệm vụ, slot rảnh và phiên học sắp tới.</p>
-      </header>
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4">
+      <PageHeader
+        title="StudyFlow Dashboard"
+        description="Nắm nhanh nhiệm vụ, slot rảnh và phiên học sắp tới."
+        actions={
+          <Link
+            href="/tasks"
+            className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 transition-colors"
+          >
+            + Nhiệm vụ mới
+          </Link>
+        }
+      />
 
       {/* What should I do today? */}
       <section className="card border-emerald-500/40 bg-emerald-500/5">
@@ -121,7 +130,13 @@ export default function DashboardPage() {
       <section className="card">
         <h2 className="text-xl font-semibold mb-4">Phiên học sắp tới</h2>
         {upcomingSessions.length === 0 ? (
-          <p className="text-sm text-zinc-400">Chưa có kế hoạch. Hãy vào trang Trình tạo kế hoạch.</p>
+          <EmptyState
+            icon="📅"
+            title="Chưa có phiên học nào"
+            description="Tạo kế hoạch để hệ thống tự động xếp lịch các phiên học."
+            primaryCTA={{ label: "Tạo kế hoạch", href: "/plan" }}
+            secondaryCTA={{ label: "Thêm nhiệm vụ", href: "/tasks" }}
+          />
         ) : (
           <ul className="space-y-3">
             {upcomingSessions.map((session) => (

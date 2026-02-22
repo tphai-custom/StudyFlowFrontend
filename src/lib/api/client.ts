@@ -1,4 +1,4 @@
-import { getToken } from "@/src/lib/auth";
+import { getToken, clearAuth } from "@/src/lib/auth";
 
 const BASE_URL =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_URL) ||
@@ -31,6 +31,12 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   });
   if (!response.ok) {
     const text = await response.text().catch(() => "Unknown error");
+    if (response.status === 401) {
+      clearAuth();
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+    }
     throw new ApiError(response.status, `API ${response.status}: ${text}`);
   }
   // 204 No Content

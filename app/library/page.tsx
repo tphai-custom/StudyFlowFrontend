@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { listLibrary, searchLibrary, seedLibrary } from "@/src/lib/storage/libraryRepo";
 import { LibraryItem } from "@/src/lib/types";
 import { getUser } from "@/src/lib/auth";
+import { PageHeader } from "@/src/components/PageHeader";
+import { EmptyState } from "@/src/components/EmptyState";
 
 const SUBJECTS = [
   { value: "toan", label: "Toán" },
@@ -118,11 +120,11 @@ export default function LibraryPage() {
   const typeLabel = (t: string) => RESOURCE_TYPES.find((x) => x.value === t)?.label ?? t;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Thư viện học tập</h1>
-        <p className="text-sm text-zinc-400">Tài liệu lớp 6–10 · 5 môn cơ bản. Lọc và tìm kiếm.</p>
-      </header>
+    <div className="mx-auto max-w-[1200px] space-y-6 px-4">
+      <PageHeader
+        title="Thư viện học tập"
+        description="Tài liệu lớp 6–10 · 5 môn cơ bản. Lọc và tìm kiếm."
+      />
 
       {/* Filters */}
       <section className="card space-y-3">
@@ -216,15 +218,15 @@ export default function LibraryPage() {
       {/* Results */}
       <section className="space-y-3">
         {items.length === 0 && !loading ? (
-          <div className="card text-center py-8 text-zinc-400 space-y-2">
-            <p>Chưa có tài liệu nào.</p>
-            {isAdmin && (
-              <p className="text-xs">Nhấn <strong>Seed dữ liệu thư viện</strong> ở trên để tạo dữ liệu mẫu.</p>
-            )}
-            {!isAdmin && (
-              <p className="text-xs">Hãy thử xóa bộ lọc hoặc liên hệ quản trị viên để seed dữ liệu.</p>
-            )}
-          </div>
+          <EmptyState
+            icon="📚"
+            title="Chưa có tài liệu nào"
+            description={
+              isAdmin
+                ? 'Nhấn "Seed dữ liệu thư viện" ở trên để tạo dữ liệu mẫu.'
+                : "Hãy thử xóa bộ lọc hoặc liên hệ quản trị viên để seed dữ liệu."
+            }
+          />
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {items.map((item) => (

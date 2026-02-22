@@ -48,7 +48,7 @@ export default function HabitsPage() {
             onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
           />
           <select
-            className="rounded-lg border border-zinc-700 bg-transparent p-2"
+            className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-white"
             value={form.cadence}
             onChange={(e) => setForm((prev) => ({ ...prev, cadence: e.target.value }))}
           >
@@ -57,7 +57,7 @@ export default function HabitsPage() {
           </select>
           {form.cadence === "weekly" && (
             <select
-              className="rounded-lg border border-zinc-700 bg-transparent p-2"
+              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-white"
               value={form.weekday}
               onChange={(e) => setForm((prev) => ({ ...prev, weekday: Number(e.target.value) }))}
             >

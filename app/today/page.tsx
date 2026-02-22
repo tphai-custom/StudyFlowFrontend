@@ -19,7 +19,7 @@ export default function TodayPage() {
     (async () => {
       const appSettings = await getSettings();
       setTimezone(appSettings.timezone ?? browserTimezone);
-    })();
+    })().catch(() => {});
   }, [browserTimezone]);
 
   const refresh = useCallback(async () => {
@@ -51,7 +51,7 @@ export default function TodayPage() {
   }, [timezone]);
 
   useEffect(() => {
-    refresh();
+    refresh().catch(() => {});
   }, [refresh]);
 
   const toggleSession = async (session: Session) => {

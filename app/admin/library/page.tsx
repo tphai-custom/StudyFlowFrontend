@@ -124,7 +124,7 @@ export default function AdminLibraryPage() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Cấp độ *</label>
               <select
-                className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white cursor-pointer"
+                className="w-full border rounded-md px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white cursor-pointer"
                 value={form.level}
                 onChange={(e) => setForm((f) => ({ ...f, level: e.target.value }))}
               >
@@ -215,7 +215,7 @@ export default function AdminLibraryPage() {
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 font-medium">{item.subject}</span>
                   <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">{item.level}</span>
-                  {item.tags?.map((tag) => (
+                  {item.tags?.map((tag: string) => (
                     <span key={tag} className="text-xs bg-green-50 text-green-700 rounded-full px-2 py-0.5">{tag}</span>
                   ))}
                 </div>

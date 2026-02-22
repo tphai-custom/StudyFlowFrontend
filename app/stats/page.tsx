@@ -38,7 +38,7 @@ export default function StatsPage() {
       setPlan(planRecord);
       setTasks(taskList);
       setTimezone(appSettings.timezone ?? browserTimezone);
-    })();
+    })().catch(() => {});
   }, [browserTimezone]);
 
   const range = useMemo(() => {

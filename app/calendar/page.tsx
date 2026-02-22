@@ -13,7 +13,7 @@ export default function CalendarPage() {
     (async () => {
       const plan = await getLatestPlan();
       setSessions(plan?.sessions ?? []);
-    })();
+    })().catch(() => {});
   }, []);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)), [weekStart]);

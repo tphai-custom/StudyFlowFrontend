@@ -63,8 +63,8 @@ export const demoHabits: Habit[] = [
 ];
 
 export const demoLibrary: LibraryItem[] = [
-  { id: crypto.randomUUID(), subject: "Toán", level: "Lớp 9", title: "PT bậc 2 cơ bản", summary: "Video + bài tập có đáp án", url: "https://example.com/toan", tags: ["PT", "bậc 2"] },
-  { id: crypto.randomUUID(), subject: "Văn", level: "Lớp 8", title: "Nghị luận xã hội", summary: "Checklist mở bài-kết bài", url: "https://example.com/van", tags: ["dàn ý"] },
+  { id: crypto.randomUUID(), subject: "Toán", level: "Lớp 9", title: "PT bậc 2 cơ bản", summary: "Video + bài tập có đáp án", url: "https://example.com/toan", tags: ["PT", "bậc 2"], resource_type: "video" },
+  { id: crypto.randomUUID(), subject: "Văn", level: "Lớp 8", title: "Nghị luận xã hội", summary: "Checklist mở bài-kết bài", url: "https://example.com/van", tags: ["đàn ý"], resource_type: "summary" },
 ];
 
 export const templates: TemplatePlan[] = [
