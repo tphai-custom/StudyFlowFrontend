@@ -29,6 +29,15 @@ export const STUDENT_NAV: NavSection[] = [
   { href: "/stats", label: "Thống kê" },
   { href: "/library", label: "Thư viện" },
   {
+    href: "/exchange",
+    label: "Trao đổi",
+    children: [
+      { href: "/exchange", label: "Hộp thư" },
+      { href: "/exchange/assigned-tasks", label: "Nhiệm vụ được giao" },
+      { href: "/exchange/assigned-habits", label: "Thói quen được giao" },
+    ],
+  },
+  {
     href: "/settings",
     label: "Cài đặt",
     children: [{ href: "/settings/profile", label: "Hồ sơ học tập" }],
@@ -59,6 +68,16 @@ export const PARENT_NAV: NavSection[] = [
   { href: "/parent/track", label: "Theo dõi" },
   { href: "/parent/nudges", label: "Nhắc & Gợi ý" },
   { href: "/parent/reports", label: "Báo cáo" },
+  {
+    href: "/parent/assign",
+    label: "Giao nhiệm vụ",
+    children: [
+      { href: "/parent/assign", label: "Nhiệm vụ" },
+      { href: "/parent/assign/habits", label: "Thói quen" },
+      { href: "/parent/assign/ideas", label: "Đề xuất" },
+      { href: "/parent/assign/messages", label: "Tin nhắn" },
+    ],
+  },
   {
     href: "/settings",
     label: "Cài đặt",

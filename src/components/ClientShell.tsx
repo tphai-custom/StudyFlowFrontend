@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SidebarNav } from "@/src/components/SidebarNav";
 import { getUser, clearAuth, getFullName, ROLE_LABELS, AuthUser } from "@/src/lib/auth";
 
-const AUTH_ROUTES = ["/login", "/register"];
+const AUTH_ROUTES = ["/", "/login", "/register"];
 
 // Routes that require a specific role (prefix-based)
 const ADMIN_ROUTES = ["/admin"];
