@@ -348,7 +348,7 @@ export default function ParentDashboardPage() {
                   Theo dõi
                 </Link>
                 <Link
-                  href="/parent/nudges"
+                  href={`/parent/nudges?child=${student.student_id}`}
                   className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700"
                 >
                   Nhắc nhở
@@ -360,13 +360,13 @@ export default function ParentDashboardPage() {
                   Giao nhiệm vụ
                 </Link>
                 <Link
-                  href="/parent/assign/messages"
+                  href={`/parent/assign/messages?child=${student.student_id}`}
                   className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700"
                 >
                   Nhắn tin
                 </Link>
                 <Link
-                  href="/parent/reports"
+                  href={`/parent/reports?child=${student.student_id}`}
                   className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-zinc-700"
                 >
                   Báo cáo

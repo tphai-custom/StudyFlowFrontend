@@ -42,6 +42,11 @@ const FEATURES = [
     title: "Template & Chương trình",
     desc: "Import nhanh template học kỳ hoặc chương trình có sẵn — không cần nhập từ đầu.",
   },
+  {
+    icon: "💬",
+    title: "Trao đổi phụ huynh – học sinh",
+    desc: "Phụ huynh giao nhiệm vụ / thói quen, học sinh phản hồi 1 chạm và báo tiến độ. Nhiệm vụ bắt buộc tự động vào kế hoạch.",
+  },
 ];
 
 const PERSONAS = [

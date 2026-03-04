@@ -15,6 +15,7 @@ import {
 import { studentListAssignedTasks, AssignedTask } from "@/src/lib/api/assigned";
 import { actionAddChecklistItem } from "@/src/lib/api/exchange";
 import { PageHeader } from "@/src/components/PageHeader";
+import { triggerBadgeRefresh } from "@/src/components/SidebarNav";
 
 const TAG_LABELS: Record<string, string> = {
   motivation: "💪 Động lực",
@@ -70,6 +71,7 @@ export default function ExchangeDetailPage() {
       const updated = await studentReply(msg.id, value, replyText || undefined);
       setMsg(updated);
       showToast("Đã phản hồi thành công!");
+      triggerBadgeRefresh();
     } catch {
       showToast("Lỗi khi phản hồi.");
     } finally {

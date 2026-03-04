@@ -90,6 +90,13 @@ const buildBuckets = (
 
 const prioritizeTasks = (tasks: Task[]): Task[] => {
   return [...tasks].sort((a, b) => {
+    // Parent+locked tasks always first
+    const aIsParentLocked = (a.source === "parent" && (a.locked || a.lockedByParent)) ? 0 : 1;
+    const bIsParentLocked = (b.source === "parent" && (b.locked || b.lockedByParent)) ? 0 : 1;
+    if (aIsParentLocked !== bIsParentLocked) return aIsParentLocked - bIsParentLocked;
+    const aIsParent = a.source === "parent" ? 0 : 1;
+    const bIsParent = b.source === "parent" ? 0 : 1;
+    if (aIsParent !== bIsParent) return aIsParent - bIsParent;
     const deadlineDiff = new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
     if (deadlineDiff !== 0) return deadlineDiff;
     if ((b.importance ?? 0) !== (a.importance ?? 0)) {
@@ -100,6 +107,40 @@ const prioritizeTasks = (tasks: Task[]): Task[] => {
     }
     return b.estimatedMinutes - a.estimatedMinutes;
   });
+};
+
+/** P1: compute actual minutes from durationMode */
+const effectiveMinutes = (task: Task): number => {
+  if (task.durationMode === "exact" && task.durationMinutesExact) {
+    return task.durationMinutesExact;
+  }
+  if (task.durationMode === "estimate" || !task.durationMode) {
+    const min = task.durationMinutesMin ?? task.durationEstimateMin;
+    const max = task.durationMinutesMax ?? task.durationEstimateMax;
+    if (min != null && max != null) {
+      return Math.round((min + max) / 2);
+    }
+  }
+  return task.estimatedMinutes;
+};
+
+/** P1: sort eligible day buckets by scheduling style */
+const sortBucketsByStyle = (
+  buckets: DayBucket[],
+  style: string | undefined,
+): DayBucket[] => {
+  const copy = [...buckets];
+  if (style === "front-load") {
+    // schedule sessions as early as possible
+    copy.sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+  } else if (style === "deadline-loaded") {
+    // schedule sessions closest to deadline first
+    copy.sort((a, b) => b.isoDate.localeCompare(a.isoDate));
+  } else {
+    // balanced: most free capacity first
+    copy.sort((a, b) => (b.allowedMinutes - b.used) - (a.allowedMinutes - a.used));
+  }
+  return copy;
 };
 
 const takeFromBucket = (
@@ -123,7 +164,9 @@ const takeFromBucket = (
       MAX_SESSION_MINUTES,
       remainingMinutesToday,
     );
-    if (!allowShorterThanMin && chunk < MIN_SESSION_MINUTES && remaining > MIN_SESSION_MINUTES) {
+    // P1 fix: allow tail sessions shorter than MIN when they're the last piece
+    const isTailSession = remaining <= MIN_SESSION_MINUTES;
+    if (!allowShorterThanMin && !isTailSession && chunk < MIN_SESSION_MINUTES && remaining > MIN_SESSION_MINUTES) {
       continue;
     }
     const minutes = chunk === 0 ? Math.min(remaining, segmentCapacity) : chunk;
@@ -294,7 +337,7 @@ export function generatePlan(input: PlannerInput): PlannerOutput {
 
   const totalCapacity = buckets.reduce((sum, bucket) => sum + bucket.allowedMinutes, 0);
   const totalDemand = prioritized.reduce(
-    (sum, task) => sum + Math.max(0, task.estimatedMinutes - task.progressMinutes),
+    (sum, task) => sum + Math.max(0, effectiveMinutes(task) - task.progressMinutes),
     0,
   );
 
@@ -315,11 +358,12 @@ export function generatePlan(input: PlannerInput): PlannerOutput {
   const focusChunk = settings.breakPreset.focus || 45;
 
   prioritized.forEach((task) => {
-    let remaining = Math.max(0, task.estimatedMinutes - task.progressMinutes);
+    let remaining = Math.max(0, effectiveMinutes(task) - task.progressMinutes);
     const deadline = new Date(task.deadline);
-    const eligibleBuckets = buckets.filter(
+    const rawEligible = buckets.filter(
       (bucket) => new Date(`${bucket.isoDate}T23:59:00+07:00`) <= deadline,
     );
+    const eligibleBuckets = sortBucketsByStyle(rawEligible, task.schedulingStyle);
     if (eligibleBuckets.length === 0) {
       unscheduledTasks.push(task);
       suggestions.push({

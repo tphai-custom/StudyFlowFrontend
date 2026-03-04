@@ -84,6 +84,7 @@ export default function TemplatesPage() {
           title: `${template.name} · ${task.title}`,
           deadline,
           difficulty: task.difficulty,
+          durationMode: "estimate",
           durationEstimateMin: task.estimatedMinutes,
           durationEstimateMax: task.estimatedMinutes,
           durationUnit: "minutes",
@@ -91,6 +92,7 @@ export default function TemplatesPage() {
           contentFocus: "Theo template",
           successCriteria: ["Hoàn thành toàn bộ checklist"],
           milestones: [{ title: task.title, minutesEstimate: task.estimatedMinutes }],
+          schedulingStyle: "balanced",
         } satisfies TaskFormValues),
       ),
     );

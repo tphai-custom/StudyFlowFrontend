@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { DurationUnit } from "@/src/lib/types";
+import { DurationUnit, DurationMode, SchedulingStyle } from "@/src/lib/types";
 
 const MIN_TASK_MINUTES = 10;
 const MAX_TASK_MINUTES = 600;
 const DURATION_UNITS = ["minutes", "hours"] as const satisfies readonly DurationUnit[];
+const DURATION_MODES = ["exact", "estimate"] as const satisfies readonly DurationMode[];
+const SCHEDULING_STYLES = ["front-load", "balanced", "deadline-loaded"] as const satisfies readonly SchedulingStyle[];
 
 const deadlineString = z
   .string({ required_error: "Vui lòng chọn deadline" })
@@ -46,6 +48,11 @@ export const taskSchema = z.object({
     .number({ invalid_type_error: "Độ khó phải từ 1-5" })
     .min(1, "Tối thiểu 1")
     .max(5, "Tối đa 5"),
+  // P1: duration mode
+  durationMode: z.enum(DURATION_MODES).default("estimate"),
+  // exact mode: single value
+  durationMinutesExact: z.coerce.number().min(1).optional().nullable(),
+  // estimate mode: range
   durationEstimateMin: z
     .coerce
     .number({ invalid_type_error: "Nhập số phút/giờ" })
@@ -68,9 +75,26 @@ export const taskSchema = z.object({
     .array(z.string().min(1, "Nhập tiêu chí"))
     .min(1, "Thêm ít nhất 1 tiêu chí"),
   milestones: z.array(milestoneSchema).optional(),
-}).refine((data) => data.durationEstimateMin <= data.durationEstimateMax, {
+  // P1: scheduling style
+  schedulingStyle: z.enum(SCHEDULING_STYLES).default("balanced"),
+})
+.refine((data) => {
+  if (data.durationMode === "estimate") {
+    return data.durationEstimateMin <= data.durationEstimateMax;
+  }
+  return true;
+}, {
   message: "Ước lượng min phải nhỏ hơn max",
   path: ["durationEstimateMin"],
+})
+.refine((data) => {
+  if (data.durationMode === "exact") {
+    return data.durationMinutesExact != null && data.durationMinutesExact > 0;
+  }
+  return true;
+}, {
+  message: "Nhập thời lượng chính xác (phút)",
+  path: ["durationMinutesExact"],
 });
 
 export type TaskFormValues = z.infer<typeof taskSchema>;

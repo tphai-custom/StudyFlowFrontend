@@ -8,6 +8,7 @@ import {
 } from "@/src/lib/api/assigned";
 import { PageHeader } from "@/src/components/PageHeader";
 import { EmptyState } from "@/src/components/EmptyState";
+import { triggerBadgeRefresh } from "@/src/components/SidebarNav";
 
 const FREQ_LABELS: Record<string, string> = {
   daily: "Hàng ngày",
@@ -59,6 +60,7 @@ export default function StudentAssignedHabitsPage() {
         prev.map((h) => (h.id === habitId ? updated : h)),
       );
       showToast("✅ Đã tick thói quen hôm nay!");
+      triggerBadgeRefresh();
     } catch {
       showToast("Lỗi khi ghi nhận thói quen.");
     }

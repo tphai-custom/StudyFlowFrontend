@@ -7,7 +7,7 @@ const toMinutes = (time: string) => {
 };
 
 export async function listSlots(): Promise<FreeSlot[]> {
-  return apiGet<FreeSlot[]>("/slots/");
+  return apiGet<FreeSlot[]>("/slots");
 }
 
 export async function saveSlot(
@@ -25,7 +25,7 @@ export async function saveSlot(
   if (payload.id) {
     return apiPut<FreeSlot>(`/slots/${payload.id}`, body);
   }
-  return apiPost<FreeSlot>("/slots/", body);
+  return apiPost<FreeSlot>("/slots", body);
 }
 
 export async function deleteSlot(id: string): Promise<void> {
@@ -35,7 +35,7 @@ export async function deleteSlot(id: string): Promise<void> {
 export async function seedSlots(sample: FreeSlot[]): Promise<void> {
   await Promise.all(
     sample.map((s) =>
-      apiPost<FreeSlot>("/slots/", {
+      apiPost<FreeSlot>("/slots", {
         weekday: s.weekday,
         startTime: s.startTime,
         endTime: s.endTime,

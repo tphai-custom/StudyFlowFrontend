@@ -8,12 +8,15 @@ import { Task } from "@/src/lib/types";
 import ConfirmDialog from "@/src/components/ConfirmDialog";
 import { PageHeader } from "@/src/components/PageHeader";
 import { EmptyState } from "@/src/components/EmptyState";
+import DateInput from "@/src/components/DateInput";
 
 const defaultForm: TaskFormValues = {
   subject: "",
   title: "",
   deadline: "",
   difficulty: 3,
+  durationMode: "estimate",
+  durationMinutesExact: null,
   durationEstimateMin: 1,
   durationEstimateMax: 2,
   durationUnit: "hours",
@@ -21,6 +24,7 @@ const defaultForm: TaskFormValues = {
   contentFocus: "",
   successCriteria: ["Hoàn thành mục tiêu chính"],
   milestones: [],
+  schedulingStyle: "balanced",
 };
 
 const exampleTask: TaskFormValues = {
@@ -28,6 +32,8 @@ const exampleTask: TaskFormValues = {
   title: "Ôn kiểm tra chương 3: Hàm số bậc 2",
   deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
   difficulty: 3,
+  durationMode: "estimate",
+  durationMinutesExact: null,
   durationEstimateMin: 6,
   durationEstimateMax: 8,
   durationUnit: "hours",
@@ -43,6 +49,7 @@ const exampleTask: TaskFormValues = {
     { title: "Làm bài tập 3 dạng", minutesEstimate: 120 },
     { title: "Xem lại lỗi và làm thêm đề", minutesEstimate: 60 },
   ],
+  schedulingStyle: "balanced",
 };
 
 export default function TasksPage() {
@@ -182,10 +189,25 @@ export default function TasksPage() {
     let list = [...tasks];
     if (filterSubject) list = list.filter((t) => t.subject?.toLowerCase() === filterSubject.toLowerCase());
     if (filterSearch) list = list.filter((t) => t.title.toLowerCase().includes(filterSearch.toLowerCase()) || t.subject?.toLowerCase().includes(filterSearch.toLowerCase()));
-    if (filterStatus === "done") list = list.filter((t) => (t.progressMinutes ?? 0) >= (t.estimatedMinutes ?? 1));
-    else if (filterStatus === "active") list = list.filter((t) => (t.progressMinutes ?? 0) < (t.estimatedMinutes ?? 1));
-    else if (filterStatus === "overdue") list = list.filter((t) => new Date(t.deadline) < new Date() && (t.progressMinutes ?? 0) < (t.estimatedMinutes ?? 1));
+    if (filterStatus === "done") list = list.filter((t) => {
+      const doneMin = t.doneMinutes ?? t.progressMinutes ?? 0;
+      const plannedMin = t.plannedMinutes ?? t.estimatedMinutes ?? 1;
+      return t.progressPercent === 100 || (doneMin >= plannedMin);
+    });
+    else if (filterStatus === "active") list = list.filter((t) => {
+      const doneMin = t.doneMinutes ?? t.progressMinutes ?? 0;
+      const plannedMin = t.plannedMinutes ?? t.estimatedMinutes ?? 1;
+      return (t.progressPercent ?? 0) < 100 && doneMin < plannedMin;
+    });
+    else if (filterStatus === "overdue") list = list.filter((t) => {
+      const pct = t.progressPercent ?? Math.min(100, Math.round(((t.progressMinutes ?? 0) / (t.estimatedMinutes ?? 1)) * 100));
+      return new Date(t.deadline) < new Date() && pct < 100;
+    });
     list.sort((a, b) => {
+      // Parent+locked tasks always first
+      const aTopPriority = (a.source === "parent" || a.locked || a.lockedByParent) ? 0 : 1;
+      const bTopPriority = (b.source === "parent" || b.locked || b.lockedByParent) ? 0 : 1;
+      if (aTopPriority !== bTopPriority) return aTopPriority - bTopPriority;
       if (filterSort === "deadline") return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
       if (filterSort === "difficulty") return (b.difficulty ?? 0) - (a.difficulty ?? 0);
       return a.title.localeCompare(b.title);
@@ -253,14 +275,31 @@ export default function TasksPage() {
           </div>
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Deadline*</label>
-            <input
-              id="deadline"
-              name="deadline"
-              type="datetime-local"
-              className="rounded-lg border border-zinc-700 bg-transparent p-2"
-              value={formValues.deadline}
-              onChange={(e) => handleChange("deadline", e.target.value)}
-            />
+            <div className="flex gap-2">
+              <DateInput
+                id="deadline-date"
+                name="deadline-date"
+                wrapperClassName="flex-1"
+                className="w-full rounded-lg border border-zinc-700 bg-transparent p-2"
+                value={formValues.deadline ? formValues.deadline.slice(0, 10) : ""}
+                onChange={(iso) => {
+                  const time = formValues.deadline ? formValues.deadline.slice(11, 16) : "23:59";
+                  handleChange("deadline", iso ? `${iso}T${time}` : "");
+                }}
+              />
+              <input
+                id="deadline-time"
+                name="deadline-time"
+                type="time"
+                disabled={!formValues.deadline || !formValues.deadline.slice(0, 10)}
+                className="w-36 rounded-lg border border-zinc-700 bg-transparent p-2 disabled:cursor-not-allowed disabled:opacity-40"
+                value={formValues.deadline ? formValues.deadline.slice(11, 16) : "23:59"}
+                onChange={(e) => {
+                  const date = formValues.deadline ? formValues.deadline.slice(0, 10) : "";
+                  handleChange("deadline", date ? `${date}T${e.target.value}` : "");
+                }}
+              />
+            </div>
             {errors.deadline ? (
               <p className="text-sm text-red-400">{errors.deadline}</p>
             ) : (
@@ -281,46 +320,108 @@ export default function TasksPage() {
             />
             {errors.difficulty && <p className="text-sm text-red-400">{errors.difficulty}</p>}
           </div>
-          <div className="grid gap-1">
-            <label className="text-sm text-zinc-300">Ước lượng thời gian*</label>
-            <div className="flex flex-wrap gap-2">
-              <input
-                id="durationEstimateMin"
-                name="durationEstimateMin"
-                type="number"
-                min={1}
-                className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
-                value={formValues.durationEstimateMin}
-                onChange={(e) => handleChange("durationEstimateMin", Number(e.target.value))}
-              />
-              <span className="self-center text-sm text-zinc-500">–</span>
-              <input
-                id="durationEstimateMax"
-                name="durationEstimateMax"
-                type="number"
-                min={1}
-                className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
-                value={formValues.durationEstimateMax}
-                onChange={(e) => handleChange("durationEstimateMax", Number(e.target.value))}
-              />
-              <select
-                id="durationUnit"
-                name="durationUnit"
-                className="rounded-lg border border-zinc-700 bg-transparent p-2"
-                value={formValues.durationUnit}
-                onChange={(e) => handleChange("durationUnit", e.target.value as TaskFormValues["durationUnit"])}
-              >
-                <option value="hours">Giờ</option>
-                <option value="minutes">Phút</option>
-              </select>
+          {/* P1: Duration Mode */}
+          <div className="grid gap-2">
+            <label className="text-sm text-zinc-300">Thời lượng học*</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="durationMode"
+                  value="estimate"
+                  checked={formValues.durationMode !== "exact"}
+                  onChange={() => handleChange("durationMode", "estimate")}
+                  className="accent-emerald-400"
+                />
+                <span className="text-sm">⚖️ Ước lượng (khoảng từ–đến)</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="durationMode"
+                  value="exact"
+                  checked={formValues.durationMode === "exact"}
+                  onChange={() => handleChange("durationMode", "exact")}
+                  className="accent-emerald-400"
+                />
+                <span className="text-sm">🎯 Chính xác</span>
+              </label>
             </div>
-            {errors.durationEstimateMin && (
-              <p className="text-sm text-red-400">{errors.durationEstimateMin}</p>
+            {formValues.durationMode === "exact" ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  id="durationMinutesExact"
+                  name="durationMinutesExact"
+                  type="number"
+                  min={1}
+                  className="w-28 rounded-lg border border-zinc-700 bg-transparent p-2"
+                  value={formValues.durationMinutesExact ?? ""}
+                  onChange={(e) => handleChange("durationMinutesExact", e.target.value === "" ? undefined : Number(e.target.value))}
+                  placeholder="Phút"
+                />
+                <span className="text-sm text-zinc-500">phút</span>
+                {errors.durationMinutesExact && (
+                  <p className="w-full text-sm text-red-400">{errors.durationMinutesExact}</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <input
+                  id="durationEstimateMin"
+                  name="durationEstimateMin"
+                  type="number"
+                  min={1}
+                  className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
+                  value={formValues.durationEstimateMin}
+                  onChange={(e) => handleChange("durationEstimateMin", Number(e.target.value))}
+                />
+                <span className="self-center text-sm text-zinc-500">–</span>
+                <input
+                  id="durationEstimateMax"
+                  name="durationEstimateMax"
+                  type="number"
+                  min={1}
+                  className="w-24 rounded-lg border border-zinc-700 bg-transparent p-2"
+                  value={formValues.durationEstimateMax}
+                  onChange={(e) => handleChange("durationEstimateMax", Number(e.target.value))}
+                />
+                <select
+                  id="durationUnit"
+                  name="durationUnit"
+                  className="rounded-lg border border-zinc-700 bg-transparent p-2"
+                  value={formValues.durationUnit}
+                  onChange={(e) => handleChange("durationUnit", e.target.value as TaskFormValues["durationUnit"])}
+                >
+                  <option value="hours">Giờ</option>
+                  <option value="minutes">Phút</option>
+                </select>
+                {errors.durationEstimateMin && (
+                  <p className="w-full text-sm text-red-400">{errors.durationEstimateMin}</p>
+                )}
+              </div>
             )}
-            {errors.durationEstimateMax && (
-              <p className="text-sm text-red-400">{errors.durationEstimateMax}</p>
-            )}
-            <p className="text-xs text-zinc-500">Ví dụ: 6–8 giờ (StudyFlow sẽ chia nhỏ thành các phiên).</p>
+            <p className="text-xs text-zinc-500">
+              {formValues.durationMode === "exact"
+                ? "Planner dùng đúng số phút này để chia lịch."
+                : "Planner dùng trung bình (min+max)/2 để chia lịch."}
+            </p>
+          </div>
+
+          {/* P1: Scheduling Style */}
+          <div className="grid gap-1">
+            <label className="text-sm text-zinc-300">Phong cách chia lịch</label>
+            <select
+              id="schedulingStyle"
+              name="schedulingStyle"
+              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2"
+              value={formValues.schedulingStyle ?? "balanced"}
+              onChange={(e) => handleChange("schedulingStyle", e.target.value as TaskFormValues["schedulingStyle"])}
+            >
+              <option value="front-load">🚀 Hoàn thành sớm (Front-load)</option>
+              <option value="balanced">⚖️ Rải đều (Balanced)</option>
+              <option value="deadline-loaded">⏰ Gần deadline (Deadline-loaded)</option>
+            </select>
+            <p className="text-xs text-zinc-500">Xác định phiên học được ưu tiên rải sớm hay gần deadline.</p>
           </div>
 
           {/* Feasibility Warnings */}
@@ -523,8 +624,12 @@ export default function TasksPage() {
         ) : (
           <ul className="space-y-3">
             {filteredTasks.map((task) => {
-              const isOverdue = new Date(task.deadline) < new Date() && (task.progressMinutes ?? 0) < (task.estimatedMinutes ?? 1);
-              const pct = task.estimatedMinutes > 0 ? Math.min(100, Math.round(((task.progressMinutes ?? 0) / task.estimatedMinutes) * 100)) : 0;
+              const doneMin = task.doneMinutes ?? task.progressMinutes ?? 0;
+              const plannedMin = task.plannedMinutes ?? task.estimatedMinutes ?? 1;
+              const pct = task.progressPercent ?? Math.min(100, Math.round((doneMin / plannedMin) * 100));
+              const isOverdue = new Date(task.deadline) < new Date() && pct < 100;
+              const doneSess = task.sessionsDone ?? 0;
+              const totalSess = task.totalSessions ?? 0;
               return (
               <li key={task.id} className="rounded-lg border border-zinc-700/60 p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -533,7 +638,10 @@ export default function TasksPage() {
                       <span className="rounded bg-zinc-700 px-1.5 py-0.5 text-xs text-zinc-300">{task.subject}</span>
                       {isOverdue && <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-xs text-red-300">⚠️ Quá hạn</span>}
                       {pct >= 100 && <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-300">✓ Xong</span>}
-                      {task.lockedByParent && <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-300">🔒 Khoá</span>}
+                      {task.source === "parent" && (
+                        <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-xs text-blue-300">👨‍👩‍👧 Từ phụ huynh</span>
+                      )}
+                      {(task.lockedByParent || task.locked) && <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-300">🔒 Bắt buộc</span>}
                     </div>
                     <Link href={`/tasks/${task.id}`} className="text-base font-semibold text-zinc-100 hover:text-emerald-300 transition-colors">
                       {task.title}
@@ -545,8 +653,13 @@ export default function TasksPage() {
                       <div className="h-1.5 flex-1 rounded-full bg-zinc-800">
                         <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-xs text-zinc-500 shrink-0">{pct}%</span>
+                      <span className="text-xs text-zinc-400 shrink-0 min-w-[90px] text-right">
+                        {doneMin}/{plannedMin} phút · {pct}%
+                      </span>
                     </div>
+                    {totalSess > 0 && (
+                      <p className="text-xs text-zinc-500">{doneSess}/{totalSess} phiên xong</p>
+                    )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
                     <Link
@@ -558,6 +671,7 @@ export default function TasksPage() {
                     <button
                       className="rounded-lg border border-red-500/50 px-3 py-1 text-sm text-red-300"
                       onClick={() => setPendingDeleteId(task.id)}
+                      style={{ display: task.childCanDelete === false ? "none" : undefined }}
                     >
                       Xoá
                     </button>

@@ -60,6 +60,7 @@ export default function ProgramsPage() {
             title: `${program.name} · ${milestone.title}`,
             deadline,
             difficulty: task.difficulty,
+            durationMode: "estimate",
             durationEstimateMin: task.estimatedMinutes,
             durationEstimateMax: task.estimatedMinutes,
             durationUnit: "minutes",
@@ -67,6 +68,7 @@ export default function ProgramsPage() {
             contentFocus: milestone.title,
             successCriteria: [milestone.successCriteria],
             milestones: [{ title: milestone.title, minutesEstimate: task.estimatedMinutes }],
+            schedulingStyle: "balanced",
           } satisfies TaskFormValues),
         );
       });

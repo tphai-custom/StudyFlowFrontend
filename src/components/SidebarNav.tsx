@@ -5,13 +5,31 @@ import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { getUser } from "@/src/lib/auth";
 import { STUDENT_NAV, PARENT_NAV, ADMIN_NAV, NavSection } from "@/src/lib/constants/nav";
-import { apiFetch } from "@/src/lib/api/client";
+import { studentBadgeSummary } from "@/src/lib/api/exchange";
+
+/** Dispatch this event from any action page to force the sidebar badge to re-fetch. */
+export const BADGE_REFRESH_EVENT = "studyflow:badge-refresh";
+export function triggerBadgeRefresh() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(BADGE_REFRESH_EVENT));
+  }
+}
 
 export function SidebarNav() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [sections, setSections] = useState<NavSection[]>(STUDENT_NAV);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [totalBadge, setTotalBadge] = useState<number>(0);
+
+  const fetchBadge = () => {
+    const user = getUser();
+    if (!user || user.role === "student") {
+      const today = new Date().toISOString().split("T")[0];
+      studentBadgeSummary(today)
+        .then((data) => setTotalBadge(data.total_badge))
+        .catch(() => {/* silently ignore if not logged in */});
+    }
+  };
 
   useEffect(() => {
     const user = getUser();
@@ -19,15 +37,15 @@ export function SidebarNav() {
     else if (user?.role === "admin") setSections(ADMIN_NAV);
     else setSections(STUDENT_NAV);
 
-    // Fetch unread count for student
-    if (!user || user.role === "student") {
-      apiFetch<{ unread_count: number }>("/student/messages/unread-count")
-        .then((data) => setUnreadCount(data.unread_count))
-        .catch(() => {/* silently ignore if not logged in */});
-    }
+    // Initial fetch + listen for refresh events
+    fetchBadge();
+    window.addEventListener(BADGE_REFRESH_EVENT, fetchBadge);
+    return () => window.removeEventListener(BADGE_REFRESH_EVENT, fetchBadge);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activePlanView = pathname === "/plan" ? searchParams?.get("view") ?? "week" : undefined;
+  const activeTrackTab = pathname === "/parent/track" ? searchParams?.get("tab") ?? "overview" : undefined;
 
   return (
     <nav className="flex flex-col gap-4 text-sm">
@@ -39,7 +57,7 @@ export function SidebarNav() {
           : false;
 
         const isExchange = section.href === "/exchange";
-        const badgeCount = isExchange && unreadCount > 0 ? unreadCount : 0;
+        const badgeCount = isExchange && totalBadge > 0 ? totalBadge : 0;
 
         return (
           <div key={section.label} className="space-y-1">
@@ -66,6 +84,8 @@ export function SidebarNav() {
                   const viewParam = url.pathname === "/plan" ? url.searchParams.get("view") : undefined;
                   const childActive = child.href.startsWith("/plan")
                     ? pathname === "/plan" && viewParam === (activePlanView ?? "week")
+                    : child.href.startsWith("/parent/track?tab=")
+                    ? pathname === "/parent/track" && url.searchParams.get("tab") === (activeTrackTab ?? "overview")
                     : pathname === url.pathname;
                   return (
                     <Link

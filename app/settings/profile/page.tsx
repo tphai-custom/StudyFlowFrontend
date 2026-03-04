@@ -6,6 +6,109 @@ import { EnergyLevel, UserProfile } from "@/src/lib/types";
 import { getUser, saveAuth, getToken, AuthUser } from "@/src/lib/auth";
 import { authRotateLinkCode } from "@/src/lib/api/auth";
 import { studentIncomingLinks, studentRespondLink, LinkSchema } from "@/src/lib/api/parent";
+import { studentGetLockedFields } from "@/src/lib/api/parent";
+import { getEffectiveSettings, EffectiveSettingsResult } from "@/src/lib/api/settings";
+import { apiFetch } from "@/src/lib/api/client";
+
+// ---- Parent Profile Component ----
+// Parents only need a simple personal info form, not the full learning profile.
+function ParentProfileSection({ currentUser }: { currentUser: AuthUser }) {
+  const [form, setForm] = useState({
+    last_name: currentUser.last_name ?? "",
+    first_name: currentUser.first_name ?? "",
+    address: currentUser.address ?? "",
+    bio: currentUser.bio ?? "",
+  });
+  const [status, setStatus] = useState("");
+
+  const handleSave = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiFetch("/auth/me", {
+        method: "PUT",
+        body: JSON.stringify(form),
+      });
+      setStatus("✓ Đã lưu thông tin cá nhân.");
+      setTimeout(() => setStatus(""), 3000);
+    } catch {
+      setStatus("✗ Không thể lưu. Vui lòng thử lại.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Hồ sơ cá nhân</h1>
+        <p className="text-sm text-zinc-400">
+          Thông tin cơ bản của tài khoản phụ huynh.
+        </p>
+        {status && (
+          <p className={`text-xs mt-1 ${status.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>
+            {status}
+          </p>
+        )}
+      </header>
+
+      <section className="card">
+        <form className="grid gap-5" onSubmit={handleSave}>
+          <div className="grid gap-1 sm:grid-cols-2 sm:gap-3">
+            <div className="grid gap-1">
+              <label className="text-sm text-zinc-400">Họ</label>
+              <input
+                type="text"
+                className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
+                value={form.last_name}
+                onChange={(e) => setForm((p) => ({ ...p, last_name: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-1">
+              <label className="text-sm text-zinc-400">Tên</label>
+              <input
+                type="text"
+                className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
+                value={form.first_name}
+                onChange={(e) => setForm((p) => ({ ...p, first_name: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-1">
+            <label className="text-sm text-zinc-400">Địa chỉ</label>
+            <input
+              type="text"
+              className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
+              value={form.address}
+              onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+              placeholder="Địa chỉ liên hệ (tuỳ chọn)"
+            />
+          </div>
+
+          <div className="grid gap-1">
+            <label className="text-sm text-zinc-400">Ghi chú cá nhân</label>
+            <textarea
+              className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
+              value={form.bio}
+              onChange={(e) => setForm((p) => ({ ...p, bio: e.target.value }))}
+              rows={3}
+              placeholder="Mô tả ngắn về bạn (tuỳ chọn)"
+            />
+          </div>
+
+          <div className="rounded-lg bg-zinc-800/50 px-4 py-3 text-xs text-zinc-400 space-y-1">
+            <p className="font-medium text-zinc-300">Thông tin tài khoản</p>
+            <p>Tên đăng nhập: <span className="text-zinc-200 font-mono">{currentUser.username}</span></p>
+            <p>Vai trò: <span className="text-zinc-200">Phụ huynh</span></p>
+            <p className="text-zinc-500">Để thay đổi mật khẩu, liên hệ quản trị viên.</p>
+          </div>
+
+          <button className="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-black" type="submit">
+            Lưu thông tin
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
 
 const BREAK_PRESETS = [
   { value: "Pomodoro 25/5", label: "Pomodoro 25/5 (học 25p – nghỉ 5p)" },
@@ -109,6 +212,8 @@ export default function UserProfilePage() {
   const [copyMsg, setCopyMsg] = useState("");
   const [rotateLoading, setRotateLoading] = useState(false);
   const [incomingLinks, setIncomingLinks] = useState<LinkSchema[]>([]);
+  const [lockedFields, setLockedFields] = useState<string[]>([]);
+  const [effective, setEffective] = useState<EffectiveSettingsResult | null>(null);
   const [form, setForm] = useState({
     gradeLevel: "",
     goals: "",
@@ -131,7 +236,11 @@ export default function UserProfilePage() {
     setCurrentUser(u);
     if (u?.role === "student") {
       studentIncomingLinks().then(setIncomingLinks).catch(() => {});
+      studentGetLockedFields().then(setLockedFields).catch(() => {});
+      getEffectiveSettings().then(setEffective).catch(() => {});
     }
+    // Parents don't have a learning profile — skip loading it
+    if (u?.role === "parent") return;
     (async () => {
       const existing = await getUserProfile();
       setProfile(existing);
@@ -196,8 +305,15 @@ export default function UserProfilePage() {
 
 
 
-  if (!profile) {
+  if (!profile && currentUser?.role !== "parent") {
     return <p className="text-sm text-zinc-400">Đang tải hồ sơ...</p>;
+  }
+
+  const isLocked = (fieldKey: string) => lockedFields.includes(fieldKey);
+
+  // --- Parent profile: simple personal info form ---
+  if (currentUser?.role === "parent") {
+    return <ParentProfileSection currentUser={currentUser!} />;
   }
 
   return (
@@ -209,6 +325,15 @@ export default function UserProfilePage() {
         </p>
         {status && <p className="text-xs text-emerald-400 mt-1">{status}</p>}
       </header>
+
+      {/* Locked fields banner */}
+      {lockedFields.length > 0 && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+          <p className="text-xs text-yellow-300">
+            🔒 Phụ huynh đã khoá {lockedFields.length} trường cài đặt. Các trường bị khoá không thể chỉnh sửa.
+          </p>
+        </div>
+      )}
 
       {/* Student link code display */}
       {currentUser?.role === "student" && (
@@ -394,22 +519,42 @@ export default function UserProfilePage() {
 
           {/* Daily limit */}
           <div className="grid gap-1">
-            <label className="text-sm text-zinc-400">Giới hạn phút học/ngày mong muốn</label>
+            <label className="text-sm text-zinc-400">
+              Giới hạn phút học/ngày mong muốn
+              {isLocked("daily_limit_minutes") && <span className="ml-2 text-xs text-yellow-400">🔒 Khoá</span>}
+            </label>
             <input
               type="number"
               min={60}
               max={600}
-              className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm"
-              value={form.dailyLimitPreference}
+              disabled={isLocked("daily_limit_minutes")}
+              className="rounded-lg border border-zinc-700 bg-transparent p-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              value={
+                isLocked("daily_limit_minutes")
+                  ? (effective?.locked_values?.["daily_limit_minutes"] ?? form.dailyLimitPreference)
+                  : form.dailyLimitPreference
+              }
               onChange={(e) => handleChange("dailyLimitPreference", Number(e.target.value))}
             />
+            {isLocked("daily_limit_minutes") && (
+              <p className="mt-1 text-xs text-yellow-300">
+                Giá trị đang áp dụng: <strong>{effective?.effective_values?.["daily_limit_minutes"]}</strong> phút/ngày (Phụ huynh đặt 🔒)
+                {effective?.student_values?.["daily_limit_minutes"] != null && (
+                  <span className="ml-1 text-zinc-500">· Giá trị bạn từng đặt: {effective.student_values["daily_limit_minutes"]} (không áp dụng khi đang khoá)</span>
+                )}
+              </p>
+            )}
           </div>
 
           {/* Break preset — select */}
           <div className="grid gap-1">
-            <label className="text-sm text-zinc-400">Preset nghỉ ưa thích</label>
+            <label className="text-sm text-zinc-400">
+              Preset nghỉ ưa thích
+              {isLocked("break_preset") && <span className="ml-2 text-xs text-yellow-400">🔒 Khoá</span>}
+            </label>
             <select
-              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm"
+              disabled={isLocked("break_preset")}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               value={form.favoriteBreakPreset}
               onChange={(e) => handleChange("favoriteBreakPreset", e.target.value)}
             >
@@ -447,9 +592,13 @@ export default function UserProfilePage() {
 
           {/* Timezone — GMT offset picker */}
           <div className="grid gap-1">
-            <label className="text-sm text-zinc-400">Múi giờ (GMT)</label>
+            <label className="text-sm text-zinc-400">
+              Múi giờ (GMT)
+              {isLocked("timezone") && <span className="ml-2 text-xs text-yellow-400">🔒 Khoá</span>}
+            </label>
             <select
-              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm"
+              disabled={isLocked("timezone")}
+              className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               value={form.tzOffsetMinutes}
               onChange={(e) => handleChange("tzOffsetMinutes", Number(e.target.value))}
             >

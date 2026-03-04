@@ -82,6 +82,22 @@ export default function ClientShell({ children }: { children: React.ReactNode })
     return <>{children}</>;
   }
 
+  // Block rendering protected pages until:
+  // 1. auth state has been read from localStorage (mounted=true), AND
+  // 2. a user actually exists (redirect to /login may be in flight but children
+  //    must NOT mount before that navigation completes — otherwise child useEffects
+  //    fire API calls without a token and get 401/307 cascades).
+  if (!mounted || !user) {
+    return (
+      <div className="app-shell">
+        <aside className="sidebar">
+          <span className="mb-6 block text-sm uppercase text-zinc-400">StudyFlow MVP</span>
+        </aside>
+        <main className="content" />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -91,7 +107,7 @@ export default function ClientShell({ children }: { children: React.ReactNode })
           "Đừng đợi sát deadline mới học" – hãy tạo kế hoạch ngay hôm nay.
         </div>
 
-        {mounted && user && (
+        {user && (
           <div className="mt-6 border-t border-zinc-800 pt-4 space-y-2">
             <p className="text-sm font-medium text-zinc-200 truncate">{getFullName(user)}</p>
             <p className="text-xs text-zinc-500">@{user.username}</p>

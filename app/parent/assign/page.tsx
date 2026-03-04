@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import DateInput from "@/src/components/DateInput";
 import {
   parentCreateAssignedTask,
   parentListAssignedTasks,
@@ -25,6 +27,8 @@ const STATUS_INFO: Record<string, { label: string; color: string }> = {
 };
 
 export default function ParentAssignTasksPage() {
+  const searchParams = useSearchParams();
+  const childParam = searchParams.get("child");
   const [students, setStudents] = useState<LinkedStudentInfo[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [tasks, setTasks] = useState<AssignedTask[]>([]);
@@ -40,6 +44,26 @@ export default function ParentAssignTasksPage() {
     priority: 2,
     tag: "study",
     locked: false,
+    durationMode: "estimate" as "exact" | "estimate",
+    durationMinutesExact: "" as string,
+    durationMinutesMin: "" as string,
+    durationMinutesMax: "" as string,
+    schedulingStyle: "balanced" as string,
+  });
+
+  const resetForm = () => setForm({
+    title: "",
+    subject: "",
+    description: "",
+    deadline: "",
+    priority: 2,
+    tag: "study",
+    locked: false,
+    durationMode: "estimate",
+    durationMinutesExact: "",
+    durationMinutesMin: "",
+    durationMinutesMax: "",
+    schedulingStyle: "balanced",
   });
 
   const showToast = (text: string) => {
@@ -51,10 +75,15 @@ export default function ParentAssignTasksPage() {
     parentGetLinkedStudents()
       .then((data) => {
         setStudents(data);
-        if (data.length > 0) setSelectedStudentId(data[0].student_id);
+        const preferred = childParam
+          ? data.find((s) => s.student_id === childParam)
+          : null;
+        if (preferred) setSelectedStudentId(preferred.student_id);
+        else if (data.length > 0) setSelectedStudentId(data[0].student_id);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -76,9 +105,14 @@ export default function ParentAssignTasksPage() {
         priority: form.priority,
         tag: form.tag,
         locked: form.locked,
+        duration_mode: form.durationMode,
+        duration_minutes_exact: form.durationMode === "exact" && form.durationMinutesExact ? Number(form.durationMinutesExact) : null,
+        duration_minutes_min: form.durationMode === "estimate" && form.durationMinutesMin ? Number(form.durationMinutesMin) : null,
+        duration_minutes_max: form.durationMode === "estimate" && form.durationMinutesMax ? Number(form.durationMinutesMax) : null,
+        scheduling_style: form.schedulingStyle,
       });
       setTasks((prev) => [created, ...prev]);
-      setForm({ title: "", subject: "", description: "", deadline: "", priority: 2, tag: "study", locked: false });
+      resetForm();
       setFormOpen(false);
       showToast("✅ Đã giao nhiệm vụ!");
     } catch {
@@ -191,10 +225,9 @@ export default function ParentAssignTasksPage() {
 
                 <div>
                   <label className="mb-1 block text-xs text-zinc-400">Hạn chót</label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={form.deadline}
-                    onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
+                    onChange={(iso) => setForm((f) => ({ ...f, deadline: iso }))}
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -250,6 +283,84 @@ export default function ParentAssignTasksPage() {
                       🔒 Bắt buộc (con không thể sửa/bỏ qua nội dung gốc)
                     </span>
                   </label>
+                </div>
+
+                {/* B3: Duration mode */}
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs text-zinc-400">Thời lượng học</label>
+                  <div className="flex gap-4 mb-2">
+                    <label className="flex items-center gap-1.5 text-xs text-zinc-300 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="durationMode"
+                        value="estimate"
+                        checked={form.durationMode === "estimate"}
+                        onChange={() => setForm((f) => ({ ...f, durationMode: "estimate" }))}
+                        className="accent-emerald-500"
+                      />
+                      Ước lượng (từ–đến phút)
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-zinc-300 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="durationMode"
+                        value="exact"
+                        checked={form.durationMode === "exact"}
+                        onChange={() => setForm((f) => ({ ...f, durationMode: "exact" }))}
+                        className="accent-emerald-500"
+                      />
+                      Chính xác (phút)
+                    </label>
+                  </div>
+                  {form.durationMode === "exact" ? (
+                    <input
+                      type="number"
+                      min={15}
+                      max={600}
+                      placeholder="Vd: 90 phút"
+                      value={form.durationMinutesExact}
+                      onChange={(e) => setForm((f) => ({ ...f, durationMinutesExact: e.target.value }))}
+                      className="w-32 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-500"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={15}
+                        max={600}
+                        placeholder="Tối thiểu"
+                        value={form.durationMinutesMin}
+                        onChange={(e) => setForm((f) => ({ ...f, durationMinutesMin: e.target.value }))}
+                        className="w-28 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-500"
+                      />
+                      <span className="text-xs text-zinc-500">–</span>
+                      <input
+                        type="number"
+                        min={15}
+                        max={600}
+                        placeholder="Tối đa"
+                        value={form.durationMinutesMax}
+                        onChange={(e) => setForm((f) => ({ ...f, durationMinutesMax: e.target.value }))}
+                        className="w-28 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-500"
+                      />
+                      <span className="text-xs text-zinc-500">phút</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* B3: Scheduling style */}
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs text-zinc-400">Phong cách chia lịch</label>
+                  <select
+                    value={form.schedulingStyle}
+                    onChange={(e) => setForm((f) => ({ ...f, schedulingStyle: e.target.value }))}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-emerald-500"
+                  >
+                    <option value="balanced">⚖️ Rải đều (Balanced)</option>
+                    <option value="front-load">⏩ Xong sớm (Front-load)</option>
+                    <option value="deadline-loaded">⏰ Gần deadline</option>
+                  </select>
+                  <p className="mt-1 text-[11px] text-zinc-500">Deadline vẫn luôn được ưu tiên, phong cách chỉ là xu hướng.</p>
                 </div>
               </div>
 

@@ -88,3 +88,70 @@ export const actionPinToday = (id: string) =>
     `/student/messages/${id}/actions/pin-today`,
     {},
   );
+
+// ── Dashboard summary endpoints (P0) ────────────────────────────────────────
+
+export interface TodayHabitSummary {
+  total: number;
+  done: number;
+  undone_ids: string[];
+}
+
+export interface ExchangeSummary {
+  unread_parent_messages: number;
+  open_parent_tasks: number;
+  today_parent_habits: TodayHabitSummary;
+}
+
+export interface SessionProgressBlock {
+  done_sessions: number;
+  planned_sessions: number;
+  done_minutes: number;
+  planned_minutes: number;
+}
+
+export interface ProgressSummary {
+  today: SessionProgressBlock;
+  week: SessionProgressBlock;
+}
+
+export interface BannerItem {
+  key: string;
+  level: "info" | "warning" | "error";
+  message: string;
+  href?: string;
+}
+
+export const studentExchangeSummary = (today?: string) =>
+  apiGet<ExchangeSummary>(
+    `/student/dashboard/exchange-summary${today ? `?today=${today}` : ""}`,
+  );
+
+export const studentProgressSummary = () =>
+  apiGet<ProgressSummary>("/student/dashboard/progress-summary");
+
+export const studentBanners = (today?: string) =>
+  apiGet<BannerItem[]>(
+    `/student/banners${today ? `?today=${today}` : ""}`,
+  );
+
+export const parentStudentProgressSummary = (studentId: string) =>
+  apiGet<ProgressSummary>(`/parent/students/${studentId}/progress-summary`);
+
+export interface ExchangeBadgeSummary {
+  unread_messages: number;
+  need_reply_messages: number;
+  pending_parent_tasks: number;
+  pending_parent_habits_today: number;
+  /** @deprecated use pending_parent_tasks */
+  pending_tasks: number;
+  /** @deprecated use pending_parent_habits_today */
+  pending_habits: number;
+  total_badge: number;
+}
+
+/** Unified badge count — single source of truth for sidebar + dashboard badges */
+export const studentBadgeSummary = (today?: string) =>
+  apiGet<ExchangeBadgeSummary>(
+    `/exchange/badge-summary${today ? `?today=${today}` : ""}`,
+  );

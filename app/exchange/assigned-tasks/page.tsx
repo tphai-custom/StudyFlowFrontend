@@ -5,6 +5,8 @@ import {
   studentListAssignedTasks,
   studentAcceptTask,
   studentMarkTaskDone,
+  studentAddTaskToPlan,
+  studentConvertTask,
   studentListTaskItems,
   studentUpdateTaskItem,
   studentQuickTaskUpdate,
@@ -13,6 +15,7 @@ import {
 } from "@/src/lib/api/assigned";
 import { PageHeader } from "@/src/components/PageHeader";
 import { EmptyState } from "@/src/components/EmptyState";
+import { triggerBadgeRefresh } from "@/src/components/SidebarNav";
 
 const STATUS_INFO: Record<string, { label: string; color: string }> = {
   ASSIGNED: { label: "Đã giao", color: "bg-blue-500/20 text-blue-300" },
@@ -21,6 +24,7 @@ const STATUS_INFO: Record<string, { label: string; color: string }> = {
   INPROGRESS: { label: "Đang làm", color: "bg-yellow-500/20 text-yellow-300" },
   DONE: { label: "Hoàn thành", color: "bg-green-500/20 text-green-300" },
   VERIFIED: { label: "Đã xác nhận", color: "bg-purple-500/20 text-purple-300" },
+  CONVERTED: { label: "Đã vào kế hoạch", color: "bg-sky-500/20 text-sky-300" },
   ARCHIVED: { label: "Đã lưu trữ", color: "bg-zinc-700 text-zinc-500" },
 };
 
@@ -182,10 +186,11 @@ export default function StudentAssignedTasksPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [inPlanIds, setInPlanIds] = useState<Set<string>>(new Set());
 
   const showToast = (text: string) => {
     setToast(text);
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
   useEffect(() => {
@@ -201,8 +206,36 @@ export default function StudentAssignedTasksPage() {
       const updated = await studentAcceptTask(taskId);
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
       showToast("✅ Đã nhận nhiệm vụ!");
+      triggerBadgeRefresh();
     } catch {
       showToast("Lỗi khi nhận nhiệm vụ.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAddToPlan = async (taskId: string) => {
+    setActionLoading(taskId + "-plan");
+    try {
+      // B3: Convert assignment → real Task (idempotent) then add to plan
+      const converted = await studentConvertTask(taskId);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId
+          ? { ...t, status: converted.assignment_status, converted_task_id: converted.task_id }
+          : t
+        ))
+      );
+      setInPlanIds((prev) => new Set([...prev, taskId]));
+      if (converted.already_converted) {
+        showToast(`✅ Nhiệm vụ đã được đưa vào kế hoạch trước đó.`);
+      } else {
+        // Also trigger plan rebuild
+        studentAddTaskToPlan(taskId).catch(() => {});
+        showToast(`🗓️ Đã tạo nhiệm vụ thật và thêm vào kế hoạch! Xem tại /tasks`);
+      }
+      triggerBadgeRefresh();
+    } catch {
+      showToast("Lỗi khi thêm vào kế hoạch.");
     } finally {
       setActionLoading(null);
     }
@@ -228,14 +261,14 @@ export default function StudentAssignedTasksPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4">
       {toast && (
-        <div className="fixed right-4 top-4 z-50 rounded-lg bg-zinc-800 px-4 py-3 text-sm text-white shadow-lg">
+        <div className="fixed right-4 top-4 z-50 rounded-lg bg-zinc-800 px-4 py-3 text-sm text-white shadow-lg border border-zinc-700">
           {toast}
         </div>
       )}
 
       <PageHeader
         title="Nhiệm vụ được giao"
-        description="Nhiệm vụ ba/mẹ giao cho bạn. Bạn có thể nhận làm và đánh dấu hoàn thành."
+        description="Nhiệm vụ ba/mẹ giao cho bạn. Nhấn 'Thêm vào kế hoạch' để tự động xếp lịch học."
       />
 
       {tasks.length === 0 ? (
@@ -249,6 +282,25 @@ export default function StudentAssignedTasksPage() {
           {tasks.map((task) => {
             const st = STATUS_INFO[task.status] ?? { label: task.status, color: "bg-zinc-700 text-zinc-400" };
             const isDone = task.status === "DONE" || task.status === "VERIFIED";
+            const isConverted = task.status === "CONVERTED" || !!task.converted_task_id || inPlanIds.has(task.id);
+            const isAccepted = task.status === "ACCEPTED" || task.status === "INPROGRESS";
+            const canAddToPlan = (task.status === "ASSIGNED" || task.status === "SEEN" || isAccepted) && !isConverted && !isDone;
+
+            // Duration display
+            let durationLabel = "";
+            if (task.duration_mode === "exact" && task.duration_minutes_exact) {
+              durationLabel = `Chính xác ${task.duration_minutes_exact}p`;
+            } else if (task.duration_minutes_min && task.duration_minutes_max) {
+              durationLabel = `${task.duration_minutes_min}–${task.duration_minutes_max}p`;
+            } else if (task.estimated_minutes) {
+              durationLabel = `~${task.estimated_minutes}p`;
+            }
+
+            const styleLabel: Record<string, string> = {
+              "front-load": "⏩ Xong sớm",
+              "balanced": "⚖️ Rải đều",
+              "deadline-loaded": "⏰ Gần deadline",
+            };
 
             return (
               <div
@@ -268,6 +320,11 @@ export default function StudentAssignedTasksPage() {
                           💡 Đề xuất
                         </span>
                       )}
+                      {isConverted && (
+                        <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] text-sky-300">
+                          🗓️ Đã vào kế hoạch
+                        </span>
+                      )}
                     </div>
                     {task.subject && (
                       <p className="text-xs text-zinc-500">Môn: {task.subject}</p>
@@ -278,10 +335,20 @@ export default function StudentAssignedTasksPage() {
                     <div className="flex items-center gap-3 text-[11px] text-zinc-500 flex-wrap">
                       <span>{PRIORITY_LABELS[task.priority] ?? `P${task.priority}`}</span>
                       {task.deadline && <span>Hạn: {task.deadline}</span>}
+                      {durationLabel && <span>⏱ {durationLabel}</span>}
+                      {task.scheduling_style && task.scheduling_style !== "balanced" && (
+                        <span>{styleLabel[task.scheduling_style] ?? task.scheduling_style}</span>
+                      )}
                       <span className={`rounded-full px-2 py-0.5 ${st.color}`}>
                         {st.label}
                       </span>
                     </div>
+                    {/* B3: Link to real task if already converted */}
+                    {task.converted_task_id && (
+                      <p className="text-[11px] text-sky-400">
+                        Nhiệm vụ thật: <a href={`/tasks/${task.converted_task_id}`} className="underline hover:text-sky-200">Xem trong Nhiệm vụ →</a>
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -296,23 +363,37 @@ export default function StudentAssignedTasksPage() {
 
                 {/* Actions */}
                 {!isDone && (
-                  <div className="flex gap-2 pt-1">
-                    {(task.status === "ASSIGNED" || task.status === "SEEN") && (
+                  <div className="flex gap-2 pt-1 flex-wrap">
+                    {(task.status === "ASSIGNED" || task.status === "SEEN") && !isConverted && (
                       <button
                         onClick={() => handleAccept(task.id)}
-                        disabled={actionLoading === task.id + "-accept"}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-black hover:bg-emerald-500 disabled:opacity-50"
+                        disabled={!!actionLoading}
+                        className="rounded-lg border border-emerald-600 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50"
                       >
-                        Nhận làm
+                        {actionLoading === task.id + "-accept" ? "…" : "Xác nhận"}
                       </button>
                     )}
-                    {(task.status === "ACCEPTED" || task.status === "INPROGRESS") && (
+                    {canAddToPlan && (
+                      <button
+                        onClick={() => handleAddToPlan(task.id)}
+                        disabled={!!actionLoading}
+                        className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+                      >
+                        {actionLoading === task.id + "-plan" ? "Đang xếp lịch…" : "🗓️ Thêm vào kế hoạch"}
+                      </button>
+                    )}
+                    {isConverted && (
+                      <span className="rounded-lg bg-sky-900/40 px-3 py-1.5 text-xs font-medium text-sky-300 border border-sky-700/40">
+                        ✅ Đã đưa vào kế hoạch
+                      </span>
+                    )}
+                    {(isAccepted || isConverted) && (
                       <button
                         onClick={() => handleDone(task.id)}
-                        disabled={actionLoading === task.id + "-done"}
+                        disabled={!!actionLoading}
                         className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-black hover:bg-green-500 disabled:opacity-50"
                       >
-                        Đánh dấu xong
+                        {actionLoading === task.id + "-done" ? "…" : "Đánh dấu xong"}
                       </button>
                     )}
                   </div>

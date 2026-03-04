@@ -68,6 +68,36 @@ const GLOSSARY_TERMS = [
     example: "Ví dụ: Điểm 85 = Tốt (kế hoạch rất khả thi), điểm 50 = Cần cải thiện (có thể quá tải).",
   },
   {
+    term: "Khoá cài đặt",
+    definition:
+      "Tính năng cho phép phụ huynh đặt cứng một số cài đặt (giới hạn phút/ngày, preset nghỉ, buffer...) để con không thể tự thay đổi. Khi một trường bị khoá, planner của con luôn dùng giá trị phụ huynh đặt, bất kể cài đặt riêng của con là bao nhiêu.",
+    example: 'Ví dụ: Phụ huynh khoá "Giới hạn phút học/ngày = 225". Con thấy biểu tượng 🔒 và dòng chữ "Giá trị đang áp dụng: 225 phút/ngày (Phụ huynh đặt)". Kế hoạch tự động dùng 225 phút.',
+  },
+  {
+    term: "Chế độ thời lượng (Duration Mode)",
+    definition:
+      "Cách bạn cung cấp thông tin thời lượng cho một nhiệm vụ. Có 2 chế độ: Chính xác (biết đúng số phút) hoặc Ước lượng (khoảng từ–đến). Planner dùng số chính xác (exact) hoặc trung bình (min+max)/2 (estimate) để chia lịch.",
+    example: 'Ví dụ: Ôn Toán Chính xác = 120 phút. Ôn Văn Ước lượng = 60–90 phút → planner dùng 75 phút.',
+  },
+  {
+    term: "Phong cách chia lịch (Scheduling Style)",
+    definition:
+      "Chiến lược phân bổ thời gian học trong các ngày trước deadline. Front-load: xếp phiên học sớm nhất có thể. Balanced: rải đều các ngày. Deadline-loaded: xếp phiên học gần sát deadline. Lưu ý: deadline luôn được ưu tiên tuyệt đối — phong cách chỉ là xu hướng, không bao giờ làm task deadline sớm bị xếp chậm hơn task deadline muộn.",
+    example: 'Ví dụ: Task A deadline ngày 5 (front-load) và Task B deadline ngày 10 (deadline-loaded). Ngày 3 còn slot → Task A luôn được xếp trước vì deadline gần hơn, dù Task B dùng style "gần deadline".',
+  },
+  {
+    term: "Nhiệm vụ phụ huynh",
+    definition:
+      "Nhiệm vụ do phụ huynh giao thông qua tính năng 'Giao nhiệm vụ'. Khi học sinh bấm 'Thêm vào kế hoạch', hệ thống tự động tạo một nhiệm vụ thật (có badge 👨‍👩‍👧 Từ phụ huynh) trong danh sách Nhiệm vụ. Học sinh không thể xóa hoặc sửa nội dung gốc của nhiệm vụ bắt buộc.",
+    example: 'Ví dụ: Ba giao "Ôn tập Toán 90p, Balanced". Học sinh bấm "Thêm vào kế hoạch" → task "Ôn tập Toán" xuất hiện trong Nhiệm vụ với badge "Từ phụ huynh 🔒" → planner tự xếp lịch.',
+  },
+  {
+    term: "Độ ưu tiên theo Deadline (Urgency Score)",
+    definition:
+      "Công thức planner dùng để tránh tình trạng bỏ sót task deadline gần: urgency = phút còn lại / số ngày còn lại. Task nào urgency cao hơn sẽ được xếp lịch trước trong ngày. Kết hợp với style_weight để tạo ra thứ tự ưu tiên cuối cùng.",
+    example: "Ví dụ: Task A còn 120p, deadline sau 1 ngày → urgency=120. Task B còn 300p, deadline sau 7 ngày → urgency≈43. Planner ưu tiên Task A trong các ngày còn lại.",
+  },
+  {
     term: "Xem theo cấp",
     definition:
       "Xem kế hoạch từ tổng quan (tuần/tháng) → chi tiết (ngày) → chi tiết hơn (phiên học cụ thể).",

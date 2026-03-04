@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authRegister } from "@/src/lib/api/auth";
 import { saveAuth, ROLE_LABELS } from "@/src/lib/auth";
+import DateInput from "@/src/components/DateInput";
 
 type Role = "student" | "parent";
 
@@ -159,11 +160,10 @@ export default function RegisterPage() {
           {/* Extra info */}
           <div className="grid gap-1">
             <label className="text-sm text-zinc-300">Ngày sinh</label>
-            <input
-              type="date"
-              className="rounded-lg border border-zinc-700 bg-transparent p-2"
+            <DateInput
+              className="w-full rounded-lg border border-zinc-700 bg-transparent p-2"
               value={form.date_of_birth}
-              onChange={(e) => field("date_of_birth", e.target.value)}
+              onChange={(iso) => field("date_of_birth", iso)}
             />
           </div>
           <div className="grid gap-1">

@@ -8,6 +8,13 @@ import { listTasks } from "@/src/lib/storage/tasksRepo";
 import { listSlots } from "@/src/lib/storage/slotsRepo";
 import { rebuildPlan, exportPlan } from "@/src/lib/planner/planService";
 import { PlanRecord, Session } from "@/src/lib/types";
+
+type SessionExt = Session & {
+  locked?: boolean;
+  lockedByParent?: boolean;
+  sourceType?: string;
+  badgeLabel?: string;
+};
 import { getSettings } from "@/src/lib/storage/settingsRepo";
 import { getBrowserTimezone, getDayKeyFromDate, getDayKeyFromISO, getMonthKeyFromISO } from "@/src/lib/datetime";
 import { getPlanMetrics, PlanMetrics } from "@/src/lib/storage/metricsRepo";
@@ -110,7 +117,7 @@ export default function PlanPage() {
   };
 
   const handleLockToggle = async (session: Session) => {
-    const isLocked = (session as Session & { locked?: boolean }).locked;
+    const isLocked = (session as SessionExt).locked;
     setLockingId(session.id);
     try {
       await apiLockSession(session.id, !isLocked);
@@ -274,19 +281,38 @@ export default function PlanPage() {
             >
               <p className="text-sm text-zinc-400">{day}</p>
               <ul className="mt-2 space-y-2">
-                {daySessions.map((session) => {
+                {daySessions.map((sRaw) => {
+                  const session = sRaw as SessionExt;
                   const successCriteriaList = normalizeSuccessCriteria(session.successCriteria);
+                  const isParentTask = session.sourceType === "parent_task" || session.lockedByParent;
+                  const parentLocked = isParentTask && session.lockedByParent;
                   return (
-                    <li key={session.id} className="flex flex-col gap-1 rounded-lg border border-zinc-800/60 p-3 text-sm">
+                    <li
+                      key={session.id}
+                      className={`flex flex-col gap-1 rounded-lg border p-3 text-sm ${
+                        parentLocked
+                          ? "border-indigo-500/40 bg-indigo-500/5"
+                          : isParentTask
+                          ? "border-indigo-500/20"
+                          : "border-zinc-800/60"
+                      }`}
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-xs uppercase text-zinc-500">
                             {session.source === "habit" ? "Habit" : session.subject}
                           </p>
-                          <p className="font-semibold">
-                            {session.title}
-                            {session.milestoneTitle ? ` · ${session.milestoneTitle}` : ""}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold">
+                              {session.title}
+                              {session.milestoneTitle ? ` · ${session.milestoneTitle}` : ""}
+                            </p>
+                            {isParentTask && (
+                              <span className="rounded-full bg-indigo-600/30 px-2 py-0.5 text-[10px] font-medium text-indigo-300 border border-indigo-500/30">
+                                {session.badgeLabel ?? (parentLocked ? "🔒 Phụ huynh giao" : "Phụ huynh gợiý")}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <span className="text-xs text-zinc-500">
                           {format(new Date(session.plannedStart), "HH:mm")} · {session.minutes}p
@@ -314,13 +340,32 @@ export default function PlanPage() {
         <p className="text-sm text-zinc-400">Hôm nay không có session nào.</p>
       ) : (
         <ul className="space-y-2">
-          {todaySessions.map((session) => {
+          {todaySessions.map((sRaw) => {
+            const session = sRaw as SessionExt;
             const successCriteriaList = normalizeSuccessCriteria(session.successCriteria);
+            const isParentTask = session.sourceType === "parent_task" || session.lockedByParent;
+            const parentLocked = isParentTask && session.lockedByParent;
             return (
-              <li key={session.id} className="rounded-lg border border-zinc-700/60 p-3">
+              <li
+                key={session.id}
+                className={`rounded-lg border p-3 ${
+                  parentLocked
+                    ? "border-indigo-500/40 bg-indigo-500/5"
+                    : isParentTask
+                    ? "border-indigo-500/20"
+                    : "border-zinc-700/60"
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold">{session.title}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{session.title}</p>
+                      {isParentTask && (
+                        <span className="rounded-full bg-indigo-600/30 px-2 py-0.5 text-[10px] font-medium text-indigo-300 border border-indigo-500/30">
+                          {session.badgeLabel ?? (parentLocked ? "🔒 Phụ huynh giao" : "Phụ huynh gợi ý")}
+                        </span>
+                      )}
+                    </div>
                     {session.milestoneTitle && (
                       <p className="text-xs text-sky-300">Milestone: {session.milestoneTitle}</p>
                     )}
@@ -329,18 +374,27 @@ export default function PlanPage() {
                     <span className="text-xs text-zinc-500">
                       {session.source === "habit" ? "Habit" : session.subject}
                     </span>
-                    <button
-                      className={`rounded px-2 py-0.5 text-xs transition-colors ${
-                        (session as Session & { locked?: boolean }).locked
-                          ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/40"
-                          : "bg-zinc-700 text-zinc-400 hover:bg-zinc-600"
-                      }`}
-                      disabled={lockingId === session.id}
-                      onClick={(e) => { e.stopPropagation(); handleLockToggle(session); }}
-                      title={(session as Session & { locked?: boolean }).locked ? "Bỏ khoá phiên" : "Khoá phiên (giữ khi tạo lại)"}
-                    >
-                      {lockingId === session.id ? "⏳" : (session as Session & { locked?: boolean }).locked ? "🔒 Khoá" : "🔓"}
-                    </button>
+                    {parentLocked ? (
+                      <span
+                        className="rounded px-2 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 cursor-default"
+                        title="Phiên do phụ huynh giao (bắt buộc) – không thể xóa"
+                      >
+                        🔒 Khoá
+                      </span>
+                    ) : (
+                      <button
+                        className={`rounded px-2 py-0.5 text-xs transition-colors ${
+                          session.locked
+                            ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/40"
+                            : "bg-zinc-700 text-zinc-400 hover:bg-zinc-600"
+                        }`}
+                        disabled={lockingId === session.id}
+                        onClick={(e) => { e.stopPropagation(); handleLockToggle(session); }}
+                        title={session.locked ? "Bỏ khoá phiên" : "Khoá phiên (giữ khi tạo lại)"}
+                      >
+                        {lockingId === session.id ? "⏳" : session.locked ? "🔒 Khoá" : "🔓"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-zinc-400">
@@ -556,11 +610,22 @@ export default function PlanPage() {
       {plan && plan.suggestions.length > 0 && (
         <section className="card space-y-2">
           <h2 className="font-semibold">Gợi ý điều chỉnh</h2>
-          {plan.suggestions.map((suggestion, index) => (
-            <p key={`${suggestion.type}-${index}`} className="text-sm text-zinc-300">
-              • {suggestion.message}
-            </p>
-          ))}
+          {plan.suggestions.map((suggestion, index) => {
+            const isLockedAlert = suggestion.message?.startsWith("LOCKED|");
+            const displayMsg = isLockedAlert
+              ? suggestion.message.split("|").slice(2).join("|")
+              : suggestion.message;
+            return (
+              <p
+                key={`${suggestion.type}-${index}`}
+                className={`text-sm ${
+                  isLockedAlert ? "text-red-300 font-medium" : "text-zinc-300"
+                }`}
+              >
+                {isLockedAlert ? "🔴" : "•"} {displayMsg}
+              </p>
+            );
+          })}
         </section>
       )}
     </div>

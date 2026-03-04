@@ -65,7 +65,17 @@ export const STUDENT_NAV: NavSection[] = [
 
 export const PARENT_NAV: NavSection[] = [
   { href: "/parent", label: "Tổng quan" },
-  { href: "/parent/track", label: "Theo dõi" },
+  { href: "/parent/children", label: "Quản lý con em" },
+  {
+    href: "/parent/track",
+    label: "Theo dõi",
+    children: [
+      { href: "/parent/track?tab=overview", label: "Tổng quan con" },
+      { href: "/parent/track?tab=tasks", label: "Nhiệm vụ" },
+      { href: "/parent/track?tab=plan", label: "Kế hoạch" },
+      { href: "/parent/track?tab=stats", label: "Thống kê" },
+    ],
+  },
   { href: "/parent/nudges", label: "Nhắc & Gợi ý" },
   { href: "/parent/reports", label: "Báo cáo" },
   {
@@ -81,7 +91,10 @@ export const PARENT_NAV: NavSection[] = [
   {
     href: "/settings",
     label: "Cài đặt",
-    children: [{ href: "/settings/profile", label: "Hồ sơ" }],
+    children: [
+      { href: "/settings/profile", label: "Hồ sơ" },
+      { href: "/parent/settings", label: "Khoá cài đặt học sinh" },
+    ],
   },
 ];
 

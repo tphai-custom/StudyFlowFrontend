@@ -22,6 +22,7 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    // listTasks() already enriches with plan progress data
     Promise.all([listTasks(), getLatestPlan()])
       .then(([tasks, plan]) => {
         const found = tasks.find((t) => t.id === id) ?? null;
@@ -37,7 +38,7 @@ export default function TaskDetailPage() {
   const handleSaveNotes = async () => {
     if (!task) return;
     setSaveStatus("Đang lưu…");
-    await saveTask({ ...task, id: task.id, notes });
+    await saveTask({ ...task, id: task.id, notes, durationMode: task.durationMode ?? "estimate", schedulingStyle: task.schedulingStyle ?? "balanced" });
     setSaveStatus("✓ Đã lưu");
     setTimeout(() => setSaveStatus(""), 2000);
   };
@@ -50,16 +51,17 @@ export default function TaskDetailPage() {
     </div>
   );
 
-  const pct = task.estimatedMinutes > 0
-    ? Math.min(100, Math.round(((task.progressMinutes ?? 0) / task.estimatedMinutes) * 100))
-    : 0;
+  // Use enriched progress fields — these come from plan sessions (done_minutes / planned_minutes)
+  const doneMinutes = task.doneMinutes ?? task.progressMinutes ?? 0;
+  const plannedMinutes = task.plannedMinutes ?? task.estimatedMinutes ?? 1;
+  const pct = task.progressPercent ?? Math.min(100, Math.round((doneMinutes / plannedMinutes) * 100));
+  const doneSessions = task.sessionsDone ?? relatedSessions.filter((s) => s.status === "done").length;
+  const totalSessions = task.totalSessions ?? relatedSessions.length;
+
   const isOverdue = new Date(task.deadline) < new Date() && pct < 100;
   const criteria = Array.isArray(task.successCriteria)
     ? task.successCriteria
     : task.successCriteria ? [task.successCriteria] : [];
-
-  const doneSessions = relatedSessions.filter((s) => s.status === "done").length;
-  const totalSessions = relatedSessions.length;
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4">
@@ -104,16 +106,23 @@ export default function TaskDetailPage() {
           </p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-          <p className="text-xs text-zinc-500 mb-1">Ước lượng</p>
+          <p className="text-xs text-zinc-500 mb-1">Thời lượng</p>
           <p className="text-sm font-semibold text-zinc-200">
-            {task.durationUnit === "hours"
+            {task.durationMode === "exact" && task.durationMinutesExact
+              ? `Chính xác: ${task.durationMinutesExact} phút`
+              : task.durationMinutesMin && task.durationMinutesMax
+              ? `Ước lượng: ${task.durationMinutesMin}–${task.durationMinutesMax} phút`
+              : task.durationUnit === "hours"
               ? `${(task.durationEstimateMin / 60).toFixed(0)}–${(task.durationEstimateMax / 60).toFixed(0)} giờ`
-              : `${task.durationEstimateMin}–${task.durationEstimateMax} phút`}
+              : `~${task.estimatedMinutes} phút`}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-xs text-zinc-500 mb-1">Tiến độ</p>
-          <p className="text-sm font-semibold text-zinc-200">{task.progressMinutes ?? 0} / {task.estimatedMinutes} phút</p>
+          <p className="text-sm font-semibold text-zinc-200">
+            {doneMinutes} / {plannedMinutes} phút
+          </p>
+          <p className="text-xs text-zinc-500 mt-0.5">{pct}%</p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <p className="text-xs text-zinc-500 mb-1">Buổi học</p>
@@ -125,7 +134,7 @@ export default function TaskDetailPage() {
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-2">
         <div className="flex justify-between text-xs text-zinc-400">
           <span>Tiến độ tổng</span>
-          <span className="font-medium text-zinc-200">{pct}%</span>
+          <span className="font-medium text-zinc-200">{doneMinutes}/{plannedMinutes} phút · {pct}%</span>
         </div>
         <div className="h-3 w-full rounded-full bg-zinc-800">
           <div
@@ -133,6 +142,57 @@ export default function TaskDetailPage() {
             style={{ width: `${pct}%` }}
           />
         </div>
+      </div>
+
+      {/* Thông tin kế hoạch — E: always visible */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-200">🗂️ Thông tin kế hoạch</h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {/* Scheduling style */}
+          <div className="rounded-lg border border-zinc-700/60 px-3 py-2">
+            <p className="text-[11px] text-zinc-500 mb-0.5">Phong cách chia lịch</p>
+            <p className="text-sm font-medium text-zinc-200">
+              {task.schedulingStyle === "front-load" && "⏩ Xong sớm"}
+              {task.schedulingStyle === "deadline-loaded" && "⏰ Gần deadline"}
+              {(!task.schedulingStyle || task.schedulingStyle === "balanced") && "⚖️ Rải đều (Balanced)"}
+            </p>
+          </div>
+          {/* Duration info — AC1/AC3: show estimate vs exact clearly */}
+          <div className="rounded-lg border border-zinc-700/60 px-3 py-2">
+            <p className="text-[11px] text-zinc-500 mb-0.5">Thời lượng</p>
+            {task.durationMode === "exact" && task.durationMinutesExact ? (
+              <p className="text-sm font-medium text-zinc-200">Chính xác: {task.durationMinutesExact} phút</p>
+            ) : task.durationMinutesMin && task.durationMinutesMax ? (
+              <p className="text-sm font-medium text-zinc-200">Ước lượng: {task.durationMinutesMin}–{task.durationMinutesMax} phút</p>
+            ) : (
+              <p className="text-sm font-medium text-zinc-200">~{task.estimatedMinutes} phút</p>
+            )}
+          </div>
+        </div>
+        {/* AC3: Planner used target_minutes */}
+        {task.targetMinutes != null && task.targetMinutes > 0 && (
+          <div className="flex items-start gap-2 rounded-lg border border-zinc-700/40 bg-zinc-800/60 px-3 py-2">
+            <span className="shrink-0 mt-0.5">🎯</span>
+            <div>
+              <p className="text-sm font-medium text-zinc-200">
+                Planner dùng: <strong>{task.targetMinutes} phút</strong>
+                {task.durationMode === "estimate" && task.durationMinutesMax && task.targetMinutes > task.durationMinutesMax && (
+                  <span className="ml-2 text-xs text-amber-400">(⚠️ Đã điều chỉnh về tối đa {task.durationMinutesMax} phút)</span>
+                )}
+              </p>
+              <p className="text-xs text-zinc-500 mt-0.5">Buffer và nghỉ không làm tăng phút học — tiến độ tính theo phút học thật.</p>
+            </div>
+          </div>
+        )}
+        {/* Parent badge */}
+        {task.source === "parent" && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2">
+            <span className="text-sm text-blue-300 font-medium">👨‍👩‍👧 Từ phụ huynh 🔒</span>
+            {(task.locked || task.lockedByParent) && (
+              <span className="text-xs text-amber-300">Bắt buộc hoàn thành</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Checklist — success criteria */}

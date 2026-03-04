@@ -13,9 +13,17 @@ export interface AssignedTask {
   locked: boolean;
   type: string;
   status: string;
+  estimated_minutes?: number | null;
   student_note?: string | null;
   reschedule_requested_date?: string | null;
   reschedule_reason?: string | null;
+  // B3: duration + style fields
+  duration_mode: string;              // 'exact' | 'estimate'
+  duration_minutes_exact?: number | null;
+  duration_minutes_min?: number | null;
+  duration_minutes_max?: number | null;
+  scheduling_style: string;           // 'front-load' | 'balanced' | 'deadline-loaded'
+  converted_task_id?: string | null;  // set after student converts to real Task
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +118,11 @@ export const parentCreateAssignedTask = (
     priority?: number;
     tag?: string;
     locked?: boolean;
+    duration_mode?: string;
+    duration_minutes_exact?: number | null;
+    duration_minutes_min?: number | null;
+    duration_minutes_max?: number | null;
+    scheduling_style?: string;
   },
 ) => apiPost<AssignedTask>(`/parent/${childId}/assigned-tasks`, data);
 
@@ -138,8 +151,24 @@ export const parentListTaskUpdates = (taskId: string) =>
 export const studentListAssignedTasks = () =>
   apiGet<AssignedTask[]>("/student/assigned-tasks");
 
-export const studentAcceptTask = (taskId: string) =>
-  apiPost<AssignedTask>(`/student/assigned-tasks/${taskId}/accept`, {});
+export const studentAcceptTask = (taskId: string, estimatedMinutes?: number) =>
+  apiPost<AssignedTask>(`/student/assigned-tasks/${taskId}/accept`, estimatedMinutes ? { estimated_minutes: estimatedMinutes } : {});
+
+export const studentAddTaskToPlan = (taskId: string, estimatedMinutes?: number) =>
+  apiPost<{ task_status: string; in_plan: boolean; plan_version: number | null }>(
+    `/student/assigned-tasks/${taskId}/add-to-plan`,
+    estimatedMinutes ? { estimated_minutes: estimatedMinutes } : {},
+  );
+
+/** B3: Convert parent assignment → real Task (1-click, idempotent). */
+export const studentConvertTask = (taskId: string) =>
+  apiPost<{ task_id: string; assignment_status: string; already_converted: boolean }>(
+    `/student/assigned-tasks/${taskId}/convert`,
+    {},
+  );
+
+export const studentSetTaskEstimate = (taskId: string, estimatedMinutes: number) =>
+  apiPost<AssignedTask>(`/student/assigned-tasks/${taskId}/estimate`, { estimated_minutes: estimatedMinutes });
 
 export const studentMarkTaskDone = (taskId: string) =>
   apiPost<AssignedTask>(`/student/assigned-tasks/${taskId}/done`, {});

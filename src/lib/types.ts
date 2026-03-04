@@ -4,6 +4,12 @@ export type ID = string;
 
 export type DurationUnit = "minutes" | "hours";
 
+/** P1: Whether task has exact or estimated (range) duration */
+export type DurationMode = "exact" | "estimate";
+
+/** P1: How the planner distributes sessions across available days */
+export type SchedulingStyle = "front-load" | "balanced" | "deadline-loaded";
+
 export type TaskMilestone = {
   id: ID;
   title: string;
@@ -29,8 +35,34 @@ export type Task = {
   createdAt: string;
   updatedAt: string;
   progressMinutes: number;
+  /** Computed from plan sessions: done minutes / planned minutes × 100 */
+  progressPercent?: number;
+  /** Total planned minutes from sessions (may differ from estimatedMinutes) */
+  plannedMinutes?: number;
+  /** Done minutes from sessions with status=done */
+  doneMinutes?: number;
+  /** Number of sessions with status=done */
+  sessionsDone?: number;
+  /** Total sessions scheduled for this task */
+  totalSessions?: number;
   lockedByParent?: boolean;
   createdByRole?: string;
+  // Parent-assigned task fields
+  source?: "student" | "parent";
+  locked?: boolean;
+  repeat?: "none" | "daily" | "weekly";
+  childCanDelete?: boolean;
+  childCanEditCore?: boolean;
+  parentId?: string | null;
+  // P1: duration mode
+  durationMode?: DurationMode;
+  durationMinutesExact?: number | null;
+  durationMinutesMin?: number | null;
+  durationMinutesMax?: number | null;
+  // P1: scheduling style
+  schedulingStyle?: SchedulingStyle;
+  // C1: planner hard cap (computed by backend)
+  targetMinutes?: number;
 };
 
 export type Habit = {
@@ -57,18 +89,25 @@ export type FreeSlot = {
 
 export type SessionSource = "task" | "habit" | "break";
 
+export type SessionType = "STUDY" | "HABIT" | "BREAK";
+
 export type Session = {
   id: ID;
   taskId?: ID;
   habitId?: ID;
   source: SessionSource;
+  // B1: canonical session type
+  sessionType?: SessionType;
   subject: string;
   title: string;
   plannedStart: string;
   plannedEnd: string;
   minutes: number;
+  // C4: study_minutes excludes buffer; occupied includes buffer
+  studyMinutes?: number;
+  occupiedMinutes?: number;
   bufferMinutes: number;
-  status: "pending" | "done" | "skipped";
+  status: "pending" | "done" | "skipped" | "auto";
   checklist?: string[];
   successCriteria?: string[];
   milestoneTitle?: string;
@@ -89,6 +128,19 @@ export type LibraryItem = {
   url?: string | null;
   tags: string[];
   created_by?: string | null;
+};
+
+/** v2: one record per (grade, subject) with 4 content groups */
+export type LibraryItemV2 = {
+  id: ID;
+  grade: number;
+  subject: string;
+  title: string;
+  lessons: string[];   // 3 items
+  summaries: string[]; // 2 items
+  exercises: string[]; // 2 items
+  videos: string[];    // 2 items
+  tags: string[];
 };
 
 export type TemplatePlan = {

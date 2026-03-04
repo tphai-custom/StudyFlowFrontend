@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import DateInput from "@/src/components/DateInput";
 import {
   parentGetLinkedStudents,
   parentGetWeeklySummary,
   parentGetStudentStats,
+  parentGetDailyReport,
   LinkedStudentInfo,
   WeeklySummary,
   StudentStats,
+  DailyReport,
 } from "@/src/lib/api/parent";
 import { PageHeader } from "@/src/components/PageHeader";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -30,13 +34,17 @@ function getRelativeWeeks(count = 8): { label: string; value: string }[] {
   }
   return weeks;
 }
-
 export default function ParentReportsPage() {
+  const searchParams = useSearchParams();
+  const childParam = searchParams.get("child");
+  const [activeTab, setActiveTab] = useState<"week" | "day">("week");
   const [students, setStudents] = useState<LinkedStudentInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [weekStr, setWeekStr] = useState(getWeekString(new Date()));
+  const [dateStr, setDateStr] = useState(new Date().toISOString().slice(0, 10));
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [stats, setStats] = useState<StudentStats | null>(null);
+  const [dailyReport, setDailyReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -45,26 +53,41 @@ export default function ParentReportsPage() {
     parentGetLinkedStudents()
       .then((list) => {
         setStudents(list);
-        if (list.length > 0) setSelectedId(list[0].student_id);
+        // Prefer child from URL param, else default to first student
+        const preferred = childParam
+          ? list.find((s) => s.student_id === childParam)
+          : null;
+        if (preferred) setSelectedId(preferred.student_id);
+        else if (list.length > 0) setSelectedId(list[0].student_id);
       })
       .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!selectedId) return;
     setErr("");
     setLoading(true);
-    Promise.all([
-      parentGetWeeklySummary(selectedId, weekStr),
-      parentGetStudentStats(selectedId, "week"),
-    ])
-      .then(([s, st]) => {
-        setSummary(s);
-        setStats(st);
-      })
-      .catch(() => setErr("Không thể tải báo cáo"))
-      .finally(() => setLoading(false));
-  }, [selectedId, weekStr]);
+    if (activeTab === "week") {
+      Promise.all([
+        parentGetWeeklySummary(selectedId, weekStr),
+        parentGetStudentStats(selectedId, "week"),
+      ])
+        .then(([s, st]) => {
+          setSummary(s);
+          setStats(st);
+        })
+        .catch(() => setErr("Không thể tải báo cáo"))
+        .finally(() => setLoading(false));
+    } else {
+      parentGetDailyReport(selectedId, dateStr)
+        .then((r) => {
+          setDailyReport(r);
+        })
+        .catch(() => setErr("Không thể tải báo cáo ngày"))
+        .finally(() => setLoading(false));
+    }
+  }, [selectedId, weekStr, dateStr, activeTab]);
 
   const selectedStudent = students.find((s) => s.student_id === selectedId);
 
@@ -138,6 +161,30 @@ export default function ParentReportsPage() {
         />
       ) : (
         <>
+          {/* Tab switcher */}
+          <div className="flex gap-2 rounded-lg bg-zinc-800/50 p-1 w-fit print:hidden">
+            <button
+              onClick={() => setActiveTab("week")}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === "week"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              📅 Tuần
+            </button>
+            <button
+              onClick={() => setActiveTab("day")}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === "day"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              🗓️ Ngày
+            </button>
+          </div>
+
           {/* Selectors */}
           <div className="flex flex-wrap items-center gap-4 print:hidden">
             {students.length > 1 && (
@@ -172,12 +219,88 @@ export default function ParentReportsPage() {
                 ))}
               </select>
             </div>
+            {activeTab === "day" && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="dateSelect" className="text-sm text-zinc-400">Ngày:</label>
+                <DateInput
+                  id="dateSelect"
+                  value={dateStr}
+                  onChange={(iso) => setDateStr(iso)}
+                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-white"
+                />
+              </div>
+            )}
           </div>
 
           {err && <p className="text-sm text-red-400">{err}</p>}
           {loading && <p className="text-sm text-zinc-400">Đang tải…</p>}
 
-          {!loading && summary && (
+          {/* Daily report tab */}
+          {!loading && activeTab === "day" && !err && (
+            <div className="space-y-4">
+              {!dailyReport ? (
+                <p className="text-sm text-zinc-400">Không có dữ liệu cho ngày này.</p>
+              ) : (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="card text-center">
+                      <p className="text-xs text-zinc-400 mb-1">Phút học hôm nay</p>
+                      <p className="text-3xl font-bold text-emerald-400">{dailyReport.total_done_minutes}</p>
+                      <p className="text-xs text-zinc-500">/ {dailyReport.total_planned_minutes} phút</p>
+                    </div>
+                    <div className="card text-center">
+                      <p className="text-xs text-zinc-400 mb-1">Tỷ lệ hoàn thành</p>
+                      <p className="text-3xl font-bold text-emerald-400">{dailyReport.completion_rate}%</p>
+                    </div>
+                    <div className="card text-center">
+                      <p className="text-xs text-zinc-400 mb-1">Ngày</p>
+                      <p className="text-base font-semibold text-zinc-200">
+                        {new Date(dateStr + "T00:00:00").toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {dailyReport.sessions && dailyReport.sessions.length > 0 && (
+                    <div className="card space-y-3">
+                      <h3 className="text-sm font-semibold text-zinc-200">Các phiên học</h3>
+                      <ul className="space-y-2">
+                        {dailyReport.sessions.map((s, i) => (
+                          <li key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-zinc-300">{s.task_title || "Phiên học"}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-zinc-500">{s.minutes} phút</span>
+                              <span className={`rounded-full px-2 py-0.5 text-xs ${
+                                s.status === "done"
+                                  ? "bg-emerald-500/20 text-emerald-300"
+                                  : s.status === "skipped"
+                                  ? "bg-zinc-700 text-zinc-400"
+                                  : "bg-yellow-500/20 text-yellow-300"
+                              }`}>
+                                {s.status === "done" ? "Xong" : s.status === "skipped" ? "Bỏ qua" : "Chưa xong"}
+                              </span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {dailyReport.alerts && dailyReport.alerts.length > 0 && (
+                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
+                      <p className="text-sm font-medium text-yellow-300 mb-2">⚠️ Cảnh báo</p>
+                      <ul className="space-y-1">
+                        {dailyReport.alerts.map((a: string, i: number) => (
+                          <li key={i} className="text-xs text-yellow-200">{a}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {!loading && activeTab === "week" && summary && (
             <div className="space-y-6">
               {/* Print header */}
               <div className="hidden print:block text-center mb-4">

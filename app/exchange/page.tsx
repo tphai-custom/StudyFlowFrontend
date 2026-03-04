@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { studentListMessages, ExchangeMessage } from "@/src/lib/api/exchange";
+import { studentListMessages, studentBadgeSummary, ExchangeMessage, ExchangeBadgeSummary } from "@/src/lib/api/exchange";
 import { PageHeader } from "@/src/components/PageHeader";
 import { EmptyState } from "@/src/components/EmptyState";
 
@@ -31,18 +31,27 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 
 export default function ExchangeInboxPage() {
   const [messages, setMessages] = useState<ExchangeMessage[]>([]);
+  const [badge, setBadge] = useState<ExchangeBadgeSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterTab>("all");
 
   useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
     setLoading(true);
-    studentListMessages(filter)
-      .then(setMessages)
+    Promise.all([
+      studentListMessages(filter),
+      studentBadgeSummary(today),
+    ])
+      .then(([msgs, badgeData]) => {
+        setMessages(msgs);
+        setBadge(badgeData);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filter]);
 
-  const unreadCount = messages.filter((m) => m.status === "unread").length;
+  // P0: use badge API total_badge for header, not local count
+  const unreadCount = badge?.unread_messages ?? messages.filter((m) => m.status === "unread").length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4">

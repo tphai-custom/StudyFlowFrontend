@@ -49,6 +49,10 @@ export default function ParentTrackPage() {
       .then((list) => {
         setStudents(list);
         const childParam = searchParams.get("child");
+        const tabParam = searchParams.get("tab") as Tab | null;
+        if (tabParam && ["overview", "tasks", "plan", "stats"].includes(tabParam)) {
+          setTab(tabParam);
+        }
         if (childParam && list.find((s) => s.student_id === childParam)) {
           setSelectedId(childParam);
         } else if (list.length > 0) {
@@ -360,7 +364,9 @@ export default function ParentTrackPage() {
                 <p className="text-sm text-zinc-400">Không có phiên học nào trong khoảng thời gian này.</p>
               ) : (
                 <ul className="space-y-2">
-                  {planSessions.map((s: any) => (
+                  {planSessions.map((s: any) => {
+                    const isBreak = s.source === "break";
+                    return (
                     <li key={s.id} className="flex items-center justify-between rounded-lg border border-zinc-700/60 p-3">
                       <div>
                         <p className="text-sm font-medium text-zinc-100">{s.title}</p>
@@ -368,19 +374,22 @@ export default function ParentTrackPage() {
                           {s.subject} · {s.minutes} phút · {format(new Date(s.plannedStart || s.planned_start), "dd/MM HH:mm")}
                         </p>
                       </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
-                          s.status === "done"
-                            ? "bg-emerald-500/20 text-emerald-300"
-                            : s.status === "skipped"
-                            ? "bg-red-500/20 text-red-300"
-                            : "bg-zinc-700 text-zinc-400"
-                        }`}
-                      >
-                        {s.status === "done" ? "✓ Xong" : s.status === "skipped" ? "Bỏ qua" : "Chờ"}
-                      </span>
+                      {/* P0: break sessions have no status badge */}
+                      {!isBreak && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs ${
+                            s.status === "done"
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : s.status === "skipped"
+                              ? "bg-red-500/20 text-red-300"
+                              : "bg-zinc-700 text-zinc-400"
+                          }`}
+                        >
+                          {s.status === "done" ? "✓ Xong" : s.status === "skipped" ? "Bỏ qua" : "Chờ"}
+                        </span>
+                      )}
                     </li>
-                  ))}
+                  )})}
                 </ul>
               )}
             </div>
