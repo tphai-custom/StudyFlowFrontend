@@ -15,7 +15,7 @@ const FEATURES = [
   {
     icon: "⏱️",
     title: "Nhập thời gian rảnh",
-    desc: "Bạn chỉ học trong slot thật. Hết slot → hệ thống báo thiếu thay vì xếp vào không khí.",
+    desc: "Bạn chỉ học trong slot rảnh. Hết slot → hệ thống báo thiếu.",
   },
   {
     icon: "📋",
@@ -25,7 +25,7 @@ const FEATURES = [
   {
     icon: "🗓️",
     title: "Tạo kế hoạch tự động",
-    desc: "Tự chia nhỏ thành phiên học Pomodoro/Deep work + buffer chống nhồi lịch.",
+    desc: "Tự chia nhỏ thành phiên học Pomodoro/Deep work và giờ nghỉ chống nhồi lịch.",
   },
   {
     icon: "✅",
@@ -53,7 +53,7 @@ const PERSONAS = [
   {
     icon: "🎓",
     role: "Học sinh",
-    desc: "Muốn học đều, tránh quên deadline và không phải nhồi bài một tuần trước thi.",
+    desc: "Muốn học đều, tránh quên deadline và không phải học nhồi vài ngày trước khi thi.",
   },
   {
     icon: "👨‍👩‍👧",
@@ -112,7 +112,7 @@ export default function LandingPage() {
             StudyFlow — Lập kế hoạch học{" "}
             <span className="text-emerald-400">"khả thi"</span>
             <br className="hidden sm:block" />
-            {" "}theo thời gian rảnh thật
+            {" "}theo thời gian rảnh
           </h1>
           <p className="mx-auto max-w-2xl text-lg leading-relaxed text-zinc-400">
             Nhập thời gian rảnh + nhiệm vụ + deadline → hệ thống tự chia nhỏ và xếp lịch học hợp lý.
@@ -121,7 +121,7 @@ export default function LandingPage() {
           {/* 3 chips */}
           <div className="flex flex-wrap justify-center gap-3">
             <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-sm text-emerald-300">
-              ✅ Không xếp lịch "ảo" — đụng slot là báo
+              ✅ Không xếp lịch "ảo" — báo nếu hết slot
             </span>
             <span className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm text-blue-300">
               ✅ Chia task lớn thành milestone + phiên học
@@ -181,7 +181,7 @@ export default function LandingPage() {
                   {[
                     "To-do list dài, không biết học lúc nào",
                     "Lên plan đẹp nhưng không khớp thời gian rảnh",
-                    "Deadline tới mới cuống học nhồi",
+                    "Deadline tới mới cuống học",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <span className="mt-0.5 text-red-400">✗</span>
@@ -197,7 +197,7 @@ export default function LandingPage() {
                 </p>
                 <ul className="space-y-2.5 text-sm text-zinc-300">
                   {[
-                    "Lịch học bám slot rảnh thật, không xếp vào không khí",
+                    "Lịch học theo slot rảnh",
                     "Task được chia nhỏ thành milestone + phiên học",
                     "Theo dõi tuần + cảnh báo sớm trước deadline",
                   ].map((item) => (

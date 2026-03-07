@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from "./client";
+import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 
 export interface AssignedTask {
   id: string;
@@ -133,6 +133,10 @@ export const parentUpdateAssignedTask = (
   taskId: string,
   data: Partial<AssignedTask>,
 ) => apiPatch<AssignedTask>(`/parent/assigned-tasks/${taskId}`, data);
+
+/** Soft-delete a parent-assigned task (and its plan sessions). Returns 204. */
+export const parentDeleteAssignedTask = (taskId: string) =>
+  apiDelete(`/parent/assigned-tasks/${taskId}`);
 
 // P1 – Task items
 export const parentAddTaskItem = (

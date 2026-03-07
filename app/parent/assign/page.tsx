@@ -7,6 +7,7 @@ import {
   parentCreateAssignedTask,
   parentListAssignedTasks,
   parentUpdateAssignedTask,
+  parentDeleteAssignedTask,
   AssignedTask,
 } from "@/src/lib/api/assigned";
 import {
@@ -35,6 +36,8 @@ export default function ParentAssignTasksPage() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null); // task id pending delete
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -120,16 +123,6 @@ export default function ParentAssignTasksPage() {
     }
   };
 
-  const handleArchive = async (taskId: string) => {
-    try {
-      const updated = await parentUpdateAssignedTask(taskId, { status: "ARCHIVED" });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
-      showToast("Đã lưu trữ nhiệm vụ.");
-    } catch {
-      showToast("Lỗi khi lưu trữ.");
-    }
-  };
-
   const handleVerify = async (taskId: string) => {
     try {
       const updated = await parentUpdateAssignedTask(taskId, { status: "VERIFIED" });
@@ -140,11 +133,54 @@ export default function ParentAssignTasksPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleteLoading(true);
+    try {
+      await parentDeleteAssignedTask(deleteConfirm);
+      setTasks((prev) => prev.filter((t) => t.id !== deleteConfirm));
+      setDeleteConfirm(null);
+      showToast("Đã xóa nhiệm vụ.");
+    } catch {
+      showToast("Không thể xóa, vui lòng thử lại.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4">
       {toast && (
         <div className="fixed right-4 top-4 z-50 rounded-lg bg-zinc-800 px-4 py-3 text-sm text-white shadow-lg">
           {toast}
+        </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 p-6 space-y-4 shadow-2xl">
+            <h2 className="text-base font-semibold text-white">Xóa nhiệm vụ?</h2>
+            <p className="text-sm text-zinc-400">
+              Nhiệm vụ sẽ biến mất ở cả phụ huynh và học sinh. Các phiên học đã xếp từ nhiệm vụ này cũng sẽ bị gỡ khỏi kế hoạch.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleteLoading}
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-400 hover:border-zinc-500 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+              >
+                {deleteLoading ? "Đang xóa…" : "Xóa"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -446,14 +482,12 @@ export default function ParentAssignTasksPage() {
                             Xác nhận xong
                           </button>
                         )}
-                        {task.status !== "ARCHIVED" && (
-                          <button
-                            onClick={() => handleArchive(task.id)}
-                            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 hover:border-zinc-500"
-                          >
-                            Thu hồi
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setDeleteConfirm(task.id)}
+                          className="rounded-lg border border-red-700 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-900/40 hover:border-red-500"
+                        >
+                          Xóa
+                        </button>
                       </div>
                     </div>
                   </div>
